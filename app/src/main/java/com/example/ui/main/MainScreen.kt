@@ -107,7 +107,13 @@ fun MainScreen(
             ) {
                 if (uiState.repos.isEmpty() && uiState.isLoading) {
                     // Shimmer list skeleton loading at launch
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 640.dp)
+                            .align(Alignment.TopCenter)
+                            .padding(16.dp)
+                    ) {
                         ShimmerEffectList()
                     }
                 } else if (uiState.repos.isEmpty()) {
@@ -117,6 +123,8 @@ fun MainScreen(
                         verticalArrangement = Arrangement.Center,
                         modifier = Modifier
                             .fillMaxSize()
+                            .widthIn(max = 480.dp)
+                            .align(Alignment.Center)
                             .padding(32.dp)
                     ) {
                         Surface(
@@ -167,7 +175,10 @@ fun MainScreen(
                         state = listState,
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 640.dp)
+                            .align(Alignment.TopCenter)
                     ) {
                         items(
                             items = uiState.repos,

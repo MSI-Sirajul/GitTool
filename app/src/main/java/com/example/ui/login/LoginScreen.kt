@@ -63,6 +63,7 @@ fun LoginScreen(
     } else {
         Scaffold { innerPadding ->
             Box(
+                contentAlignment = Alignment.Center,
                 modifier = modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -80,6 +81,8 @@ fun LoginScreen(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .fillMaxSize()
+                        .widthIn(max = 480.dp)
+                        .align(Alignment.Center)
                         .padding(24.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
