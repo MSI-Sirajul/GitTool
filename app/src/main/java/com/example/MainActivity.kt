@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         // High-performing decoupled channel to capture redirect codes
         val oauthCodeFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        var pendingOAuthCode: String? = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
         if (data != null && data.toString().startsWith("gittool://callback")) {
             val code = data.getQueryParameter("code")
             if (!code.isNullOrEmpty()) {
+                pendingOAuthCode = code
                 oauthCodeFlow.tryEmit(code)
             }
         }

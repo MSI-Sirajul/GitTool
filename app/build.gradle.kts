@@ -14,10 +14,19 @@ android {
     applicationId = "com.msi.gittool"
     minSdk = 26
     targetSdk = 34
-    versionCode = 4
-    versionName = "1.1.2"
+    versionCode = 6
+    versionName = "2.1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  splits {
+    abi {
+      isEnable = false
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+      isUniversalApk = false
+    }
   }
 
   signingConfigs {
@@ -40,11 +49,20 @@ android {
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
+      isShrinkResources = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("debugConfig")
     }
     debug {
+      isMinifyEnabled = false
       signingConfig = signingConfigs.getByName("debugConfig")
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path = file("src/main/cpp/CMakeLists.txt")
+      version = "3.22.1"
     }
   }
   compileOptions {
@@ -102,6 +120,7 @@ dependencies {
   implementation(libs.retrofit)
   
   // Custom additions
+  implementation("com.google.android.play:integrity:1.3.0")
   implementation("androidx.security:security-crypto:1.1.0-alpha06")
   implementation("androidx.core:core-splashscreen:1.0.1")
   implementation("androidx.documentfile:documentfile:1.0.1")

@@ -74,11 +74,11 @@ fun UploadSheet(
             }
         },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = modifier.fillMaxHeight(0.9f)
+        modifier = modifier.fillMaxHeight(0.75f)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .verticalScroll(scrollState)
         ) {

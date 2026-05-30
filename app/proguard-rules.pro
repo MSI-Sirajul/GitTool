@@ -23,3 +23,18 @@
 # Security Crypto rules
 -dontwarn javax.annotation.Nullable
 -dontwarn javax.annotation.ParametersAreNonnullByDefault
+
+# Security Script preserving rules
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes *Annotation*
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+-keep class com.msi.gittool.security.NativeSecurity { *; }
+-keep class com.msi.gittool.** { *; }
+

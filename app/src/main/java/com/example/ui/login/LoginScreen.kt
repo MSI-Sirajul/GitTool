@@ -47,7 +47,12 @@ fun LoginScreen(
 
     // Subscribe to decoupled Activity redirection stream
     LaunchedEffect(Unit) {
+        MainActivity.pendingOAuthCode?.let { code ->
+            MainActivity.pendingOAuthCode = null
+            viewModel.handleOAuthRedirectCode(code)
+        }
         MainActivity.oauthCodeFlow.collect { code ->
+            MainActivity.pendingOAuthCode = null
             viewModel.handleOAuthRedirectCode(code)
         }
     }
