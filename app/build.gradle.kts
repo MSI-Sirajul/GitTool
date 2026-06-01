@@ -14,8 +14,8 @@ android {
     applicationId = "com.msi.gittool"
     minSdk = 26
     targetSdk = 34
-    versionCode = 15
-    versionName = "4.1.3"
+    versionCode = 18
+    versionName = "5.1.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     manifestPlaceholders["appAuthRedirectScheme"] = "gittool"

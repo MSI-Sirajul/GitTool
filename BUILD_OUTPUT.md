@@ -1,6 +1,6 @@
 # GitTool Build Output
 
-The GitTool application has been successfully built and verified under version **v4.1.3 (Build Code: 15)**.
+The GitTool application has been successfully built and verified under version **v5.1.5 (Build Code: 18)**.
 
 ## Built Artifacts
 - **Output APK**: `app-debug.apk` (copied to the project root directory)

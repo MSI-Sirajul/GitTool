@@ -50,6 +50,20 @@ class AuthManager(
         activity.startActivityForResult(authIntent, RC_AUTH)
     }
 
+    fun handleIntent(intent: Intent) {
+        val response = AuthorizationResponse.fromIntent(intent)
+        val exception = AuthorizationException.fromIntent(intent)
+        
+        if (response != null) {
+            authState.update(response, exception)
+            exchangeCode(response)
+        } else if (exception != null) {
+            _oauthStateFlow.value = OAuthState.Error(
+                exception.message ?: "Authorization failed or cancelled"
+            )
+        }
+    }
+
     fun handleAuthorizationResponse(
         requestCode: Int,
         resultCode: Int,
@@ -57,17 +71,7 @@ class AuthManager(
     ) {
         if (requestCode == RC_AUTH) {
             if (data != null) {
-                val response = AuthorizationResponse.fromIntent(data)
-                val exception = AuthorizationException.fromIntent(data)
-                
-                if (response != null) {
-                    authState.update(response, exception)
-                    exchangeCode(response)
-                } else {
-                    _oauthStateFlow.value = OAuthState.Error(
-                        exception?.message ?: "Authorization failed or cancelled"
-                    )
-                }
+                handleIntent(data)
             } else {
                 _oauthStateFlow.value = OAuthState.Error("No authorization response received")
             }

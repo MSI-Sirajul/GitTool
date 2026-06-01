@@ -25,6 +25,11 @@ class MainActivity : ComponentActivity() {
         
         val container = (applicationContext as GitToolApplication).container
         
+        // Handle OAuth callback intent on fresh launch/creation of MainActivity
+        intent?.let {
+            container.authManager.handleIntent(it)
+        }
+        
         setContent {
             val themeViewModel: ThemeViewModel = viewModel(
                 factory = ThemeViewModel.Factory(container.themePreferences)
@@ -43,6 +48,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val container = (applicationContext as GitToolApplication).container
+        container.authManager.handleIntent(intent)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

@@ -1,9 +1,11 @@
 package com.example.data.remote
 
+import com.example.util.Constants
+
 object GitHubOAuthConfig {
-    const val CLIENT_ID = "Ov23liPH9JTGqH82O72w"
-    const val REDIRECT_URI = "gittool://callback"
+    val CLIENT_ID: String get() = Constants.GITHUB_CLIENT_ID
+    val REDIRECT_URI: String get() = Constants.GITHUB_REDIRECT_URI
     const val SCOPE = "repo user"
-    const val AUTH_ENDPOINT = "https://github.com/login/oauth/authorize"
-    const val TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token"
+    val AUTH_ENDPOINT: String get() = Constants.GITHUB_OAUTH_AUTHORIZE_URL
+    val TOKEN_ENDPOINT: String get() = Constants.GITHUB_OAUTH_TOKEN_URL
 }
