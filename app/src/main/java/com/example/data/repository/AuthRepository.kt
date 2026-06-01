@@ -32,7 +32,6 @@ class AuthRepository(
         try {
             val response = apiService.exchangeOAuthToken(
                 clientId = clientId,
-                clientSecret = clientSecret,
                 code = code,
                 codeVerifier = codeVerifier,
                 redirectUri = redirectUri
@@ -79,13 +78,30 @@ class AuthRepository(
                 )
                 finalToken = authResponse.token
             } catch (authException: Exception) {
+                // If it fails with 422, a token with this identifier or settings exists already
+                if (authException is retrofit2.HttpException && authException.code() == 422) {
+                    return@withContext Result.failure(Exception(
+                        "A token already exists for this app. Please delete it from your GitHub settings or log in with your existing token."
+                    ))
+                }
+
                 // If token creation fails but credentials were valid, check if they already provided a PAT in the password field
                 if (trimmedPass.startsWith("ghp_") || trimmedPass.startsWith("github_pat_") || trimmedPass.length >= 35) {
                     finalToken = trimmedPass
+                } else if (authException is retrofit2.HttpException) {
+                    val otpHeader = authException.response()?.headers()?.get("X-GitHub-OTP")
+                    val errorBody = authException.response()?.errorBody()?.string() ?: ""
+                    if (otpHeader != null || errorBody.contains("two-factor") || errorBody.contains("OTP", ignoreCase = true)) {
+                        return@withContext Result.failure(Exception(
+                            "Two-factor authentication is enabled. Please use a personal access token instead, or log in with GitHub OAuth."
+                        ))
+                    } else {
+                        return@withContext Result.failure(Exception(
+                            "Password login is discontinued by GitHub. Please use a Personal Access Token (PAT) with 'repo' and 'user' scopes, and paste it into the Password field instead."
+                        ))
+                    }
                 } else {
-                    return@withContext Result.failure(Exception(
-                        "Password login is discontinued by GitHub. Two-factor authentication or API policies on this account prevent automated token generation. Please use a Personal Access Token (PAT) with 'repo' and 'user' scopes, and paste it into the Password field instead."
-                    ))
+                    return@withContext Result.failure(authException)
                 }
             }
 
@@ -105,9 +121,11 @@ class AuthRepository(
                 val errorBody = e.response()?.errorBody()?.string() ?: ""
                 
                 if (otpHeader != null || errorBody.contains("two-factor") || errorBody.contains("OTP", ignoreCase = true)) {
-                    Result.failure(Exception("Two-factor authentication enabled. Please use a personal access token instead."))
+                    Result.failure(Exception("Two-factor authentication is enabled. Please use a personal access token instead, or log in with GitHub OAuth."))
                 } else if (e.code() == 401) {
                     Result.failure(Exception("Incorrect username or password."))
+                } else if (e.code() == 422) {
+                    Result.failure(Exception("A token already exists for this app. Please delete it from your GitHub settings or log in with your existing token."))
                 } else {
                     Result.failure(Exception("GitHub returned error: ${e.message()} (Code: ${e.code()})"))
                 }

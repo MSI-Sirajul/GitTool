@@ -14,8 +14,8 @@ android {
     applicationId = "com.msi.gittool"
     minSdk = 26
     targetSdk = 34
-    versionCode = 13
-    versionName = "4.1.1"
+    versionCode = 15
+    versionName = "4.1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

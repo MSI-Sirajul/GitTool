@@ -5,6 +5,12 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 class TokenManager(context: Context) {
+    private val secureTokenStorage = try {
+        com.msi.gittool.data.local.SecureTokenStorage(context)
+    } catch (e: Throwable) {
+        null
+    }
+
     private val sharedPrefs = try {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -17,7 +23,7 @@ class TokenManager(context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         context.getSharedPreferences("gittool_standard_prefs", Context.MODE_PRIVATE)
     }
 
@@ -82,11 +88,29 @@ class TokenManager(context: Context) {
     }
 
     fun saveAccessToken(token: String?) {
+        if (token != null) {
+            try {
+                secureTokenStorage?.saveToken(token)
+            } catch (e: Exception) {
+                // Ignore backup failures
+            }
+        } else {
+            try {
+                secureTokenStorage?.clearToken()
+            } catch (e: Exception) {
+                // Ignore backup failures
+            }
+        }
         sharedPrefs.edit().putString(KEY_ACCESS_TOKEN, token).apply()
     }
 
     fun getAccessToken(): String? {
-        return sharedPrefs.getString(KEY_ACCESS_TOKEN, null)
+        val secure = try {
+            secureTokenStorage?.getToken()
+        } catch (e: Exception) {
+            null
+        }
+        return secure ?: sharedPrefs.getString(KEY_ACCESS_TOKEN, null)
     }
 
     fun saveUsername(username: String?) {
@@ -106,6 +130,11 @@ class TokenManager(context: Context) {
     }
 
     fun clear() {
+        try {
+            secureTokenStorage?.clearToken()
+        } catch (e: Exception) {
+            // Ignore format exceptions on legacy keys
+        }
         sharedPrefs.edit().clear().apply()
     }
 }

@@ -36,7 +36,6 @@ interface GitHubApiService {
     @Headers("Accept: application/json")
     suspend fun exchangeOAuthToken(
         @Field("client_id") clientId: String,
-        @Field("client_secret") clientSecret: String?,
         @Field("code") code: String,
         @Field("code_verifier") codeVerifier: String?,
         @Field("redirect_uri") redirectUri: String
