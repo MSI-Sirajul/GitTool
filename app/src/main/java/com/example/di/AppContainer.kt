@@ -37,10 +37,10 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val repoRepository: RepoRepository by lazy {
-        RepoRepository(apiService)
+        RepoRepository(apiService, tokenManager)
     }
 
     override val uploadRepository: UploadRepository by lazy {
-        UploadRepository(apiService, context)
+        UploadRepository(apiService, context, tokenManager)
     }
 }

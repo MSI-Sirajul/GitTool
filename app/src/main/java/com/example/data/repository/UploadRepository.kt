@@ -4,7 +4,11 @@ import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import androidx.documentfile.provider.DocumentFile
+import com.example.data.local.TokenManager
 import com.example.data.remote.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -17,14 +21,54 @@ data class ProjectFile(
 
 class UploadRepository(
     private val apiService: GitHubApiService,
-    private val context: Context
+    private val context: Context,
+    private val tokenManager: TokenManager
 ) {
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val repoListType = Types.newParameterizedType(List::class.java, GitHubRepo::class.java)
+    private val listAdapter = moshi.adapter<List<GitHubRepo>>(repoListType)
+
+    private fun addRepoToLocalList(username: String, repo: GitHubRepo) {
+        try {
+            val json = tokenManager.getLocalUserReposJson(username)
+            val currentList = if (json.isNullOrEmpty()) {
+                mutableListOf(
+                    GitHubRepo(1, "gittool-companion", "Companion tool for uploading repositories to GitHub with dynamic Material 3 custom animations", false, "https://github.com/$username/gittool-companion", "Modern Jetpack Compose app", 42, 12, "Kotlin", "https://github.com/$username/gittool-companion.git"),
+                    GitHubRepo(2, "esoteric-compiler-rust", "ESOLANG programming syntax parser and compiler constructed in safe systems Rust language", false, "https://github.com/$username/esoteric-compiler-rust", "Frictionless Rust parsing tool", 112, 11, "Rust", "https://github.com/$username/esoteric-compiler-rust.git"),
+                    GitHubRepo(3, "private-project-vault", "Confidential repository housing personal credential logs and advanced system configurations", true, "https://github.com/$username/private-project-vault", "Private configurations catalog", 3, 0, "Python", "https://github.com/$username/private-project-vault.git")
+                )
+            } else {
+                listAdapter.fromJson(json)?.toMutableList() ?: mutableListOf()
+            }
+            currentList.add(0, repo)
+            tokenManager.saveLocalUserReposJson(username, listAdapter.toJson(currentList))
+        } catch (e: Exception) {
+            // safe fallback
+        }
+    }
 
     suspend fun createRepository(
         name: String,
         description: String?,
         private: Boolean
     ): Result<GitHubRepo> = withContext(Dispatchers.IO) {
+        if (tokenManager.isMockLogin()) {
+            val username = tokenManager.getUsername() ?: "local_user"
+            val newRepo = GitHubRepo(
+                id = System.currentTimeMillis(),
+                name = name,
+                full_name = "$username/$name",
+                private = private,
+                html_url = "https://github.com/$username/$name",
+                description = description,
+                stargazers_count = 0,
+                forks_count = 0,
+                language = "Kotlin",
+                clone_url = "https://github.com/$username/$name.git"
+            )
+            addRepoToLocalList(username, newRepo)
+            return@withContext Result.success(newRepo)
+        }
         try {
             val response = apiService.createRepo(
                 CreateRepoRequest(
@@ -88,6 +132,31 @@ class UploadRepository(
         files: List<ProjectFile>,
         onProgress: (stage: String, progress: Float, count: Int) -> Unit
     ): Result<String> = withContext(Dispatchers.IO) {
+        if (tokenManager.isMockLogin()) {
+            try {
+                onProgress("Initializing local vault upload...", 0.05f, 0)
+                var uploadedCount = 0
+                for (file in files) {
+                    uploadedCount++
+                    val stageMsg = "Uploading files ($uploadedCount/${files.size})"
+                    val uploadProgress = 0.05f + ((uploadedCount.toFloat() / files.size) * 0.80f)
+                    onProgress(stageMsg, uploadProgress, uploadedCount)
+                    kotlinx.coroutines.delay(100)
+                }
+                onProgress("Assembling secure archive structural tree...", 0.88f, uploadedCount)
+                kotlinx.coroutines.delay(200)
+                onProgress("Composing repository commit hashes...", 0.92f, uploadedCount)
+                kotlinx.coroutines.delay(200)
+                onProgress("Committing modifications...", 0.95f, uploadedCount)
+                kotlinx.coroutines.delay(200)
+                onProgress("Syncing remote configurations...", 0.98f, uploadedCount)
+                kotlinx.coroutines.delay(200)
+                onProgress("Successfully completed!", 1.0f, uploadedCount)
+                return@withContext Result.success("MOCK_SUCCESS")
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+        }
         try {
             onProgress("Initializing upload...", 0.05f, 0)
             val treeEntries = mutableListOf<TreeEntry>()

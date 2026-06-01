@@ -17,9 +17,8 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isLoginSuccess: Boolean = false,
-    val oauthClientIdInput: String = "",
-    val oauthClientSecretInput: String = "",
-    val oauthRedirectUriInput: String = ""
+    val usernameInput: String = "",
+    val passwordInput: String = ""
 )
 
 class LoginViewModel(
@@ -29,37 +28,16 @@ class LoginViewModel(
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
-    init {
-        val savedId = authRepository.getOAuthClientId() ?: Constants.GITHUB_CLIENT_ID
-        val savedSecret = authRepository.getOAuthClientSecret() ?: ""
-        val savedRedirect = authRepository.getOAuthRedirectUri() ?: Constants.GITHUB_REDIRECT_URI
-
-        _uiState.update {
-            it.copy(
-                oauthClientIdInput = savedId,
-                oauthClientSecretInput = savedSecret,
-                oauthRedirectUriInput = savedRedirect
-            )
-        }
-    }
-
-    fun updateOauthClientId(id: String) {
-        _uiState.update { it.copy(oauthClientIdInput = id, errorMessage = null) }
-        authRepository.saveOAuthClientId(id)
-    }
-
-    fun updateOauthClientSecret(secret: String) {
-        _uiState.update { it.copy(oauthClientSecretInput = secret, errorMessage = null) }
-        authRepository.saveOAuthClientSecret(secret)
-    }
-
-    fun updateOauthRedirectUri(uri: String) {
-        _uiState.update { it.copy(oauthRedirectUriInput = uri, errorMessage = null) }
-        authRepository.saveOAuthRedirectUri(uri)
-    }
-
     fun updateTokenInput(token: String) {
         _uiState.update { it.copy(tokenInput = token, errorMessage = null) }
+    }
+
+    fun updateUsernameInput(username: String) {
+        _uiState.update { it.copy(usernameInput = username, errorMessage = null) }
+    }
+
+    fun updatePasswordInput(password: String) {
+        _uiState.update { it.copy(passwordInput = password, errorMessage = null) }
     }
 
     fun updateRememberMe(remember: Boolean) {
@@ -88,16 +66,31 @@ class LoginViewModel(
         }
     }
 
-    fun handleOAuthRedirectCode(code: String) {
-        val clientId = _uiState.value.oauthClientIdInput.trim()
-        val clientSecret = _uiState.value.oauthClientSecretInput.trim().ifEmpty { null }
-        val redirectUri = _uiState.value.oauthRedirectUriInput.trim().ifEmpty { Constants.GITHUB_REDIRECT_URI }
-        val verifier = savedCodeVerifier
+    fun loginWithCredentials() {
+        val username = _uiState.value.usernameInput.trim()
+        val password = _uiState.value.passwordInput.trim()
 
-        if (clientId.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "GitHub Client ID is missing!") }
+        if (username.isEmpty() || password.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Username and password cannot be empty") }
             return
         }
+
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            val result = authRepository.loginWithCredentials(username, password, _uiState.value.rememberMe)
+            result.onSuccess {
+                _uiState.update { it.copy(isLoading = false, isLoginSuccess = true) }
+            }.onFailure { error ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Login failed") }
+            }
+        }
+    }
+
+    fun handleOAuthRedirectCode(code: String) {
+        val clientId = Constants.GITHUB_CLIENT_ID
+        val clientSecret = null
+        val redirectUri = Constants.GITHUB_REDIRECT_URI
+        val verifier = savedCodeVerifier
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
@@ -119,13 +112,9 @@ class LoginViewModel(
 
     fun startOAuthFlow(onTriggerUrl: (String) -> Unit) {
         clearError()
-        val clientId = _uiState.value.oauthClientIdInput.trim()
-        val redirectUri = _uiState.value.oauthRedirectUriInput.trim().ifEmpty { Constants.GITHUB_REDIRECT_URI }
+        val clientId = Constants.GITHUB_CLIENT_ID
+        val redirectUri = Constants.GITHUB_REDIRECT_URI
 
-        if (clientId.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "GitHub client ID is required.") }
-            return
-        }
         val verifier = com.example.util.PkceUtil.generateCodeVerifier()
         savedCodeVerifier = verifier
         

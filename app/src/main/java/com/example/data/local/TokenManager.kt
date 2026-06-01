@@ -28,6 +28,33 @@ class TokenManager(context: Context) {
         private const val KEY_OAUTH_CLIENT_ID = "github_oauth_client_id"
         private const val KEY_OAUTH_CLIENT_SECRET = "github_oauth_client_secret"
         private const val KEY_OAUTH_REDIRECT_URI = "github_oauth_redirect_uri"
+        private const val KEY_IS_MOCK_LOGIN = "github_is_mock_login"
+    }
+
+    fun saveIsMockLogin(isMock: Boolean) {
+        sharedPrefs.edit().putBoolean(KEY_IS_MOCK_LOGIN, isMock).apply()
+    }
+
+    fun isMockLogin(): Boolean {
+        return sharedPrefs.getBoolean(KEY_IS_MOCK_LOGIN, false)
+    }
+
+    fun registerLocalUser(username: String, secretPass: String): Boolean {
+        val savedPass = sharedPrefs.getString("local_user_pass_$username", null)
+        if (savedPass == null) {
+            sharedPrefs.edit().putString("local_user_pass_$username", secretPass).apply()
+            return true
+        } else {
+            return savedPass == secretPass
+        }
+    }
+
+    fun getLocalUserReposJson(username: String): String? {
+        return sharedPrefs.getString("local_user_repos_$username", null)
+    }
+
+    fun saveLocalUserReposJson(username: String, json: String) {
+        sharedPrefs.edit().putString("local_user_repos_$username", json).apply()
     }
 
     fun saveOAuthClientId(clientId: String?) {
