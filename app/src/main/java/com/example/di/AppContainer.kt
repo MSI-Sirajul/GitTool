@@ -3,6 +3,7 @@ package com.example.di
 import android.content.Context
 import com.example.data.local.ThemePreferences
 import com.example.data.local.TokenManager
+import com.example.data.remote.AuthManager
 import com.example.data.remote.GitHubApiService
 import com.example.data.remote.RetrofitClient
 import com.example.data.repository.AuthRepository
@@ -16,6 +17,7 @@ interface AppContainer {
     val authRepository: AuthRepository
     val repoRepository: RepoRepository
     val uploadRepository: UploadRepository
+    val authManager: AuthManager
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
@@ -42,5 +44,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val uploadRepository: UploadRepository by lazy {
         UploadRepository(apiService, context, tokenManager)
+    }
+
+    override val authManager: AuthManager by lazy {
+        AuthManager(context, tokenManager)
     }
 }

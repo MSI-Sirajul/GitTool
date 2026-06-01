@@ -98,36 +98,8 @@ data class RefObject(
 )
 
 @JsonClass(generateAdapter = true)
-data class OAuthTokenRequest(
-    val client_id: String,
-    val client_secret: String,
-    val code: String,
-    val redirect_uri: String? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class OAuthTokenResponse(
-    val access_token: String?,
-    val token_type: String?,
-    val scope: String?,
-    val error: String?,
-    val error_description: String?
-)
-
-@JsonClass(generateAdapter = true)
 data class RepoRefResponse(
     val ref: String,
     val `object`: RefObject
-)
-
-@JsonClass(generateAdapter = true)
-data class CreateAuthBody(
-    val scopes: List<String>,
-    val note: String
-)
-
-@JsonClass(generateAdapter = true)
-data class AuthResponse(
-    val token: String?
 )
 

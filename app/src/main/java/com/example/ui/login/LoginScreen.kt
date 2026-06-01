@@ -1,7 +1,6 @@
 package com.example.ui.login
 
-import android.content.Intent
-import android.net.Uri
+import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,15 +9,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -29,7 +25,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.MainActivity
 import com.example.ui.components.LoadingAnimation
 
 @Composable
@@ -40,23 +35,7 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    
-    // 0 = OAuth, 1 = Token, 2 = Username & Password
-    var selectedTab by remember { mutableIntStateOf(0) }
     var obscureToken by remember { mutableStateOf(true) }
-    var obscurePassword by remember { mutableStateOf(true) }
-
-    // Subscribe to redirected Activity callback streams
-    LaunchedEffect(Unit) {
-        MainActivity.pendingOAuthCode?.let { code ->
-            MainActivity.pendingOAuthCode = null
-            viewModel.handleOAuthRedirectCode(code)
-        }
-        MainActivity.oauthCodeFlow.collect { code ->
-            MainActivity.pendingOAuthCode = null
-            viewModel.handleOAuthRedirectCode(code)
-        }
-    }
 
     LaunchedEffect(uiState.isLoginSuccess) {
         if (uiState.isLoginSuccess) {
@@ -130,196 +109,143 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // 3-way Tab selector (OAuth, Token, Credentials)
-                    TabRow(
-                        selectedTabIndex = selectedTab,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                    // SECTION 1: GitHub OAuth Button
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            text = { Text("OAuth", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.testTag("oauth_tab")
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "GitHub Single Sign-On",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    val activity = context as? Activity
+                                    if (activity != null) {
+                                        viewModel.startOAuthFlow(activity)
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .testTag("oauth_login_button")
+                            ) {
+                                Text(
+                                    text = "Continue with GitHub",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Neat Divider with text "or"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.outlineVariant
                         )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            text = { Text("Access Token", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.testTag("token_tab")
+                        Text(
+                            text = "or",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
-                        Tab(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            text = { Text("Credentials", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.testTag("credentials_tab")
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.outlineVariant
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Animation switcher for different tabs
-                    AnimatedContent(
-                        targetState = selectedTab,
-                        transitionSpec = {
-                            fadeIn() togetherWith fadeOut()
-                        },
-                        label = "Auth selection panels"
-                    ) { targetTab ->
-                        when (targetTab) {
-                            0 -> {
-                                // Column containing standard GitHub OAuth Flow
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Button(
-                                        onClick = {
-                                            viewModel.startOAuthFlow { url ->
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                                context.startActivity(intent)
-                                            }
-                                        },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(56.dp)
-                                            .testTag("oauth_login_button")
-                                    ) {
-                                        Text(
-                                            text = "Login with GitHub",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
+                    // SECTION 2: Personal Access Token (PAT) Input
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Developer Access Token",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = uiState.tokenInput,
+                                onValueChange = { viewModel.updateTokenInput(it) },
+                                label = { Text("Personal Access Token") },
+                                placeholder = { Text("ghp_...") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Key,
+                                        contentDescription = "Token field entry key"
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(onClick = { obscureToken = !obscureToken }) {
+                                        Icon(
+                                            imageVector = if (obscureToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = "Obscure token toggle"
                                         )
                                     }
+                                },
+                                visualTransformation = if (obscureToken) PasswordVisualTransformation() else VisualTransformation.None,
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("token_input_field")
+                            )
 
-                                    Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                                    Text(
-                                        text = "Authorizes the application securely via GitHub's official single sign-on system.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(horizontal = 8.dp)
-                                    )
-                                }
-                            }
-                            1 -> {
-                                // Access Token Panel
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    OutlinedTextField(
-                                        value = uiState.tokenInput,
-                                        onValueChange = { viewModel.updateTokenInput(it) },
-                                        label = { Text("Personal Access Token") },
-                                        placeholder = { Text("ghp_...") },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Key,
-                                                contentDescription = "Token field entry key"
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            IconButton(onClick = { obscureToken = !obscureToken }) {
-                                                Icon(
-                                                    imageVector = if (obscureToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                                    contentDescription = "Obscure token toggle"
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (obscureToken) PasswordVisualTransformation() else VisualTransformation.None,
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("token_input_field")
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Button(
-                                        onClick = { viewModel.loginWithToken() },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(56.dp)
-                                            .testTag("token_login_button")
-                                    ) {
-                                        Text(
-                                            text = "Verify & Access",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                            2 -> {
-                                // Username & Password credentials form
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    OutlinedTextField(
-                                        value = uiState.usernameInput,
-                                        onValueChange = { viewModel.updateUsernameInput(it) },
-                                        label = { Text("Username") },
-                                        placeholder = { Text("Enter your username") },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Person,
-                                                contentDescription = "Username field icon"
-                                            )
-                                        },
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("credentials_username_field")
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = uiState.passwordInput,
-                                        onValueChange = { viewModel.updatePasswordInput(it) },
-                                        label = { Text("Password") },
-                                        placeholder = { Text("Enter your password") },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Lock,
-                                                contentDescription = "Password field icon"
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            IconButton(onClick = { obscurePassword = !obscurePassword }) {
-                                                Icon(
-                                                    imageVector = if (obscurePassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                                    contentDescription = "Obscure password toggle"
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (obscurePassword) PasswordVisualTransformation() else VisualTransformation.None,
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("credentials_password_field")
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Button(
-                                        onClick = { viewModel.loginWithCredentials() },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(56.dp)
-                                            .testTag("credentials_login_button")
-                                    ) {
-                                        Text(
-                                            text = "Login with Credentials",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
+                            Button(
+                                onClick = { viewModel.loginWithToken() },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .testTag("token_login_button")
+                            ) {
+                                Text(
+                                    text = "Login with Token",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }

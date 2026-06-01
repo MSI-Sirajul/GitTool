@@ -18,6 +18,7 @@ android {
     versionName = "4.1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    manifestPlaceholders["appAuthRedirectScheme"] = "gittool"
   }
 
   splits {
@@ -120,6 +121,7 @@ dependencies {
   implementation(libs.retrofit)
   
   // Custom additions
+  implementation("net.openid:appauth:0.11.1")
   implementation("com.google.android.play:integrity:1.3.0")
   implementation("androidx.security:security-crypto:1.1.0-alpha06")
   implementation("androidx.core:core-splashscreen:1.0.1")

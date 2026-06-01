@@ -8,17 +8,6 @@ interface GitHubApiService {
     @GET("user")
     suspend fun getCurrentUser(): GitHubUser
 
-    @GET("user")
-    suspend fun getUserWithBasicAuth(
-        @Header("Authorization") basicAuthHeader: String
-    ): GitHubUser
-
-    @POST("authorizations")
-    suspend fun createAuthorization(
-        @Header("Authorization") basicAuthHeader: String,
-        @Body body: CreateAuthBody
-    ): AuthResponse
-
     @GET("user/repos")
     suspend fun getUserRepos(
         @Query("per_page") perPage: Int = 30,
@@ -30,16 +19,6 @@ interface GitHubApiService {
     suspend fun createRepo(
         @Body request: CreateRepoRequest
     ): GitHubRepo
-
-    @POST("https://github.com/login/oauth/access_token")
-    @FormUrlEncoded
-    @Headers("Accept: application/json")
-    suspend fun exchangeOAuthToken(
-        @Field("client_id") clientId: String,
-        @Field("code") code: String,
-        @Field("code_verifier") codeVerifier: String?,
-        @Field("redirect_uri") redirectUri: String
-    ): OAuthTokenResponse
 
     @POST("repos/{owner}/{repo}/git/blobs")
     suspend fun createBlob(

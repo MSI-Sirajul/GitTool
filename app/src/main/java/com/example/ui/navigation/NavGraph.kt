@@ -130,7 +130,7 @@ fun NavGraph(
         // 2. LOGIN SCREEN
         composable(Screen.Login.route) {
             val loginViewModel: LoginViewModel = viewModel(
-                factory = LoginViewModel.Factory(container.authRepository)
+                factory = LoginViewModel.Factory(container.authRepository, container.authManager)
             )
             LoginScreen(
                 viewModel = loginViewModel,

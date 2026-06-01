@@ -1,10 +1,11 @@
 package com.example.ui.login
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.repository.AuthRepository
-import com.example.util.Constants
+import com.example.data.remote.AuthManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,28 +17,42 @@ data class LoginUiState(
     val rememberMe: Boolean = true,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isLoginSuccess: Boolean = false,
-    val usernameInput: String = "",
-    val passwordInput: String = ""
+    val isLoginSuccess: Boolean = false
 )
 
 class LoginViewModel(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    val authManager: AuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
+    init {
+        // Collect OAuth state updates from AuthManager
+        viewModelScope.launch {
+            authManager.oauthStateFlow.collect { oauthState ->
+                when (oauthState) {
+                    is AuthManager.OAuthState.Idle -> {
+                        // Pass
+                    }
+                    is AuthManager.OAuthState.Loading -> {
+                        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                    }
+                    is AuthManager.OAuthState.Success -> {
+                        // Conduct downstream validation and persistence
+                        loginWithOAuthToken(oauthState.accessToken)
+                    }
+                    is AuthManager.OAuthState.Error -> {
+                        _uiState.update { it.copy(isLoading = false, errorMessage = oauthState.message) }
+                    }
+                }
+            }
+        }
+    }
+
     fun updateTokenInput(token: String) {
         _uiState.update { it.copy(tokenInput = token, errorMessage = null) }
-    }
-
-    fun updateUsernameInput(username: String) {
-        _uiState.update { it.copy(usernameInput = username, errorMessage = null) }
-    }
-
-    fun updatePasswordInput(password: String) {
-        _uiState.update { it.copy(passwordInput = password, errorMessage = null) }
     }
 
     fun updateRememberMe(remember: Boolean) {
@@ -66,74 +81,28 @@ class LoginViewModel(
         }
     }
 
-    fun loginWithCredentials() {
-        val username = _uiState.value.usernameInput.trim()
-        val password = _uiState.value.passwordInput.trim()
-
-        if (username.isEmpty() || password.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "Username and password cannot be empty") }
-            return
-        }
-
+    private fun loginWithOAuthToken(token: String) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            val result = authRepository.loginWithCredentials(username, password, _uiState.value.rememberMe)
+            val result = authRepository.loginWithToken(token, _uiState.value.rememberMe)
             result.onSuccess {
                 _uiState.update { it.copy(isLoading = false, isLoginSuccess = true) }
             }.onFailure { error ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Login failed") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Single Sign-On integration failed") }
             }
         }
     }
 
-    fun handleOAuthRedirectCode(code: String) {
-        val clientId = Constants.GITHUB_CLIENT_ID
-        val clientSecret = null
-        val redirectUri = Constants.GITHUB_REDIRECT_URI
-        val verifier = savedCodeVerifier
-
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch {
-            val result = authRepository.exchangeOAuthCode(
-                clientId = clientId,
-                clientSecret = clientSecret,
-                code = code,
-                codeVerifier = verifier,
-                redirectUri = redirectUri,
-                rememberMe = _uiState.value.rememberMe
-            )
-            result.onSuccess {
-                _uiState.update { it.copy(isLoading = false, isLoginSuccess = true) }
-            }.onFailure { error ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "OAuth Token exchange failed") }
-            }
-        }
-    }
-
-    fun startOAuthFlow(onTriggerUrl: (String) -> Unit) {
+    fun startOAuthFlow(activity: Activity) {
         clearError()
-        val clientId = Constants.GITHUB_CLIENT_ID
-        val redirectUri = Constants.GITHUB_REDIRECT_URI
-
-        val verifier = com.example.util.PkceUtil.generateCodeVerifier()
-        savedCodeVerifier = verifier
-        
-        val challenge = com.example.util.PkceUtil.generateCodeChallenge(verifier)
-        val url = "${Constants.GITHUB_OAUTH_AUTHORIZE_URL}?client_id=$clientId" +
-                "&redirect_uri=$redirectUri" +
-                "&scope=repo,user" +
-                "&code_challenge=$challenge" +
-                "&code_challenge_method=S256"
-        onTriggerUrl(url)
+        authManager.startOAuth(activity)
     }
 
     companion object {
-        var savedCodeVerifier: String? = null
-
-        fun Factory(authRepository: AuthRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun Factory(authRepository: AuthRepository, authManager: AuthManager): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return LoginViewModel(authRepository) as T
+                return LoginViewModel(authRepository, authManager) as T
             }
         }
     }

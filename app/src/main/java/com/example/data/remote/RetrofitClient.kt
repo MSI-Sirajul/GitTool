@@ -17,12 +17,10 @@ object RetrofitClient {
         val authInterceptor = Interceptor { chain ->
             val requestBuilder = chain.request().newBuilder()
             
-            val urlString = chain.request().url.toString()
-            val isOAuthUrl = urlString.contains("github.com/login/oauth/access_token")
             val token = tokenManager.getAccessToken()
             
-            if (!isOAuthUrl && !token.isNullOrEmpty()) {
-                requestBuilder.header("Authorization", "token $token")
+            if (!token.isNullOrEmpty()) {
+                requestBuilder.header("Authorization", "Bearer $token")
             }
             requestBuilder.header("Accept", "application/vnd.github.v3+json")
             
