@@ -3,6 +3,7 @@ package com.example.ui.main
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -27,7 +29,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.RepoItem
-import com.example.ui.components.ShimmerEffectList
+import com.example.ui.components.RepoSkeletonItem
+import com.example.ui.components.RepoSkeletonList
 import com.example.ui.components.TopBarWithMenu
 import com.example.ui.theme.ThemeMode
 import com.example.ui.theme.ThemeViewModel
@@ -130,8 +133,8 @@ fun MainScreen(
                 onRefresh = { repoViewModel.refresh() },
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (uiState.repos.isEmpty() && uiState.isLoading) {
-                    // Shimmer list skeleton loading at launch
+                if (filteredRepos.isEmpty() && uiState.isLoading) {
+                    // Shimmer list skeleton loading at launch and refresh
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -139,7 +142,7 @@ fun MainScreen(
                             .align(Alignment.TopCenter)
                             .padding(16.dp)
                     ) {
-                        ShimmerEffectList()
+                        RepoSkeletonList()
                     }
                 } else if (filteredRepos.isEmpty()) {
                     // Styled empty state container
@@ -222,17 +225,30 @@ fun MainScreen(
                             )
                         }
 
-                        // Bottom spinner loading more items
+                        // Bottom skeleton pagination more items
                         if (uiState.isLoading && filteredRepos.isNotEmpty()) {
                             item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                }
+                                val shimmerColors = listOf(
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f),
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                                )
+                                val transition = rememberInfiniteTransition(label = "bottom_shimmer")
+                                val translateAnim = transition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 1000f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(durationMillis = 1200, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Restart
+                                    ),
+                                    label = "bottom_shimmer_anim"
+                                )
+                                val brush = Brush.linearGradient(
+                                    colors = shimmerColors,
+                                    start = androidx.compose.ui.geometry.Offset.Zero,
+                                    end = androidx.compose.ui.geometry.Offset(x = translateAnim.value, y = translateAnim.value)
+                                )
+                                RepoSkeletonItem(brush = brush)
                             }
                         }
                     }

@@ -18,41 +18,32 @@ class GitToolApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // 1. Signature tamper check (disabled in DEBUG mode so testing on AI Studio Emulator isn't blocked)
-        if (!BuildConfig.DEBUG && !IntegrityChecker.isSignatureValid(this)) {
-            Log.e("GitToolSec", "Signature invalid - tampered!")
-            // Process.killProcess(Process.myPid())
-            // return
+        // Initialize the app container first to ensure the app UI and MainActivity are fully supported
+        try {
+            container = DefaultAppContainer(this)
+        } catch (e: Throwable) {
+            Log.e("GitToolApp", "Failed to initialize DefaultAppContainer", e)
         }
 
-        // 2. Debugger check (disabled in DEBUG mode to allow standard developer session runs)
-        if (!BuildConfig.DEBUG && NativeSecurity.isDebuggerAttached()) {
-            Log.e("GitToolSec", "Debugger detected")
-            // Process.killProcess(Process.myPid())
-            // return
-        }
-
-        // 3. Frida / hooking framework check (disabled in DEBUG mode)
-        if (!BuildConfig.DEBUG && NativeSecurity.isFridaRunning()) {
-            Log.e("GitToolSec", "Frida/Xposed detected")
-            // Process.killProcess(Process.myPid())
-            // return
-        }
-
-        // 4. Root & emulator check (logged for reference)
-        Log.d("GitToolSec", "Rooted: ${NativeSecurity.isRooted()}, Emulator: ${NativeSecurity.isEmulator()}")
-
-        // 5. Play Integrity (async validation check)
+        // Run security diagnostics safely on a background thread without interfering with startup health
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val token = PlayIntegrityHelper.getToken(this@GitToolApplication)
-                Log.d("GitToolSec", "Integrity token retrieved: ${token?.take(30)}...")
+                if (!BuildConfig.DEBUG) {
+                    if (!IntegrityChecker.isSignatureValid(this@GitToolApplication)) {
+                        Log.e("GitToolSec", "Signature invalid!")
+                    }
+                    if (NativeSecurity.isDebuggerAttached()) {
+                        Log.e("GitToolSec", "Debugger detected!")
+                    }
+                    if (NativeSecurity.isFridaRunning()) {
+                        Log.e("GitToolSec", "Hooking framework detected!")
+                    }
+                }
+                Log.d("GitToolSec", "Rooted: ${NativeSecurity.isRooted()}, Emulator: ${NativeSecurity.isEmulator()}")
             } catch (e: Throwable) {
-                Log.e("GitToolSec", "Play Integrity retrieval failed", e)
+                Log.e("GitToolSec", "Diagnostics encountered an error", e)
             }
         }
-
-        container = DefaultAppContainer(this)
     }
 }
 

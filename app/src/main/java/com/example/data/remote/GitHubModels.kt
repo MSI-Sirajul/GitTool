@@ -119,3 +119,15 @@ data class RepoRefResponse(
     val ref: String,
     val `object`: RefObject
 )
+
+@JsonClass(generateAdapter = true)
+data class CreateAuthBody(
+    val scopes: List<String>,
+    val note: String
+)
+
+@JsonClass(generateAdapter = true)
+data class AuthResponse(
+    val token: String?
+)
+

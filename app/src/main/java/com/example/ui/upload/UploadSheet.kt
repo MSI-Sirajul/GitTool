@@ -67,7 +67,7 @@ fun UploadSheet(
     }
 
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
+        skipPartiallyExpanded = false
     )
 
     ModalBottomSheet(
@@ -78,8 +78,9 @@ fun UploadSheet(
             }
         },
         sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        modifier = modifier.fillMaxHeight(0.75f)
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
