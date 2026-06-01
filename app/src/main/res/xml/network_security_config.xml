@@ -11,10 +11,6 @@
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
-        <pin-set>
-            <pin digest="SHA-256">RRM1dGqnDFsCJXBTHky16vi1obOlCgFFn/yOhI/y+ho=</pin>
-            <pin digest="SHA-256">r/mIkG3eEpVdm+u/ko/cwxzOMo1bk4TyHIlByibiA5E=</pin>
-        </pin-set>
     </domain-config>
 
     <domain-config cleartextTrafficPermitted="false">

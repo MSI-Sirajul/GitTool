@@ -165,15 +165,10 @@ fun LoginScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Button(
                                     onClick = {
-                                        viewModel.clearError()
-                                        val clientId = Constants.GITHUB_CLIENT_ID
-                                        if (clientId.isEmpty()) {
-                                            viewModel.loginWithToken() // trigger error state handling gracefully
-                                            return@Button
+                                        viewModel.startOAuthFlow { url ->
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                            context.startActivity(intent)
                                         }
-                                        val url = "${Constants.OAUTH_AUTHORIZE_URL}?client_id=${clientId}&redirect_uri=${Constants.OAUTH_REDIRECT_URI}&scope=repo,user"
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                        context.startActivity(intent)
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(

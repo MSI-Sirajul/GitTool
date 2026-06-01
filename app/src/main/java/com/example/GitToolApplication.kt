@@ -32,8 +32,8 @@ class GitToolApplication : Application() {
             return
         }
 
-        // 3. Frida / hooking framework check (always runs)
-        if (NativeSecurity.isFridaRunning()) {
+        // 3. Frida / hooking framework check (disabled in DEBUG mode)
+        if (!BuildConfig.DEBUG && NativeSecurity.isFridaRunning()) {
             Log.e("GitToolSec", "Frida/Xposed detected")
             Process.killProcess(Process.myPid())
             return

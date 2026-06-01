@@ -21,9 +21,13 @@ interface GitHubApiService {
     ): GitHubRepo
 
     @POST("https://github.com/login/oauth/access_token")
+    @FormUrlEncoded
     @Headers("Accept: application/json")
     suspend fun exchangeOAuthToken(
-        @Body request: OAuthTokenRequest
+        @Field("client_id") clientId: String,
+        @Field("code") code: String,
+        @Field("code_verifier") codeVerifier: String,
+        @Field("redirect_uri") redirectUri: String
     ): OAuthTokenResponse
 
     @POST("repos/{owner}/{repo}/git/blobs")

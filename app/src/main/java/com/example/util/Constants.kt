@@ -11,12 +11,7 @@ object Constants {
         BuildConfig.GITHUB_CLIENT_ID
     }
 
-    val GITHUB_CLIENT_SECRET: String = if (BuildConfig.GITHUB_CLIENT_SECRET.isNullOrEmpty() || BuildConfig.GITHUB_CLIENT_SECRET == "YOUR_GITHUB_CLIENT_SECRET") {
-        "f9d41219c557078144548b68553fa3ed45232d06"
-    } else {
-        BuildConfig.GITHUB_CLIENT_SECRET
-    }
-
-    const val OAUTH_REDIRECT_URI = "gittool://callback"
-    const val OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
+    const val GITHUB_REDIRECT_URI = "gittool://callback"
+    const val GITHUB_OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
+    const val GITHUB_OAUTH_TOKEN_URL = "https://github.com/login/oauth/access_token"
 }

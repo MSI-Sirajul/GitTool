@@ -14,8 +14,8 @@ android {
     applicationId = "com.msi.gittool"
     minSdk = 26
     targetSdk = 34
-    versionCode = 6
-    versionName = "2.1.3"
+    versionCode = 7
+    versionName = "3.1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -143,4 +143,9 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+tasks.register<Copy>("copyApkToRoot") {
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(rootDir)
 }

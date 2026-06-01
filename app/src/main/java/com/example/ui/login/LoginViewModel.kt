@@ -58,10 +58,15 @@ class LoginViewModel(
 
     fun handleOAuthRedirectCode(code: String) {
         val clientId = Constants.GITHUB_CLIENT_ID
-        val clientSecret = Constants.GITHUB_CLIENT_SECRET
+        val verifier = savedCodeVerifier ?: ""
 
-        if (clientId.isEmpty() || clientSecret.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "OAuth Client keys are missing! Please configure them in AI Studio Secrets panel, or use Personal Access Token login instead.") }
+        if (clientId.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "GitHub Client ID is missing!") }
+            return
+        }
+
+        if (verifier.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Authentication failed: code verifier not found.") }
             return
         }
 
@@ -69,8 +74,9 @@ class LoginViewModel(
         viewModelScope.launch {
             val result = authRepository.exchangeOAuthCode(
                 clientId = clientId,
-                clientSecret = clientSecret,
                 code = code,
+                codeVerifier = verifier,
+                redirectUri = Constants.GITHUB_REDIRECT_URI,
                 rememberMe = _uiState.value.rememberMe
             )
             result.onSuccess {
@@ -81,7 +87,28 @@ class LoginViewModel(
         }
     }
 
+    fun startOAuthFlow(onTriggerUrl: (String) -> Unit) {
+        clearError()
+        val clientId = Constants.GITHUB_CLIENT_ID
+        if (clientId.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "GitHub client ID is missing.") }
+            return
+        }
+        val verifier = com.example.util.PkceUtil.generateCodeVerifier()
+        savedCodeVerifier = verifier
+        
+        val challenge = com.example.util.PkceUtil.generateCodeChallenge(verifier)
+        val url = "${Constants.GITHUB_OAUTH_AUTHORIZE_URL}?client_id=$clientId" +
+                "&redirect_uri=${Constants.GITHUB_REDIRECT_URI}" +
+                "&scope=repo,user" +
+                "&code_challenge=$challenge" +
+                "&code_challenge_method=S256"
+        onTriggerUrl(url)
+    }
+
     companion object {
+        var savedCodeVerifier: String? = null
+
         fun Factory(authRepository: AuthRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {

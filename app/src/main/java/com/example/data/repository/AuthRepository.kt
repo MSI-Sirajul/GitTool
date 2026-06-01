@@ -27,14 +27,13 @@ class AuthRepository(
         }
     }
 
-    suspend fun exchangeOAuthCode(clientId: String, clientSecret: String, code: String, rememberMe: Boolean): Result<GitHubUser> = withContext(Dispatchers.IO) {
+    suspend fun exchangeOAuthCode(clientId: String, code: String, codeVerifier: String, redirectUri: String, rememberMe: Boolean): Result<GitHubUser> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.exchangeOAuthToken(
-                OAuthTokenRequest(
-                    client_id = clientId,
-                    client_secret = clientSecret,
-                    code = code
-                )
+                clientId = clientId,
+                code = code,
+                codeVerifier = codeVerifier,
+                redirectUri = redirectUri
             )
             val token = response.access_token
             if (!token.isNullOrEmpty()) {

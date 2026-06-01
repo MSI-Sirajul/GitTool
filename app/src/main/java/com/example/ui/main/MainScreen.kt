@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -44,6 +46,9 @@ fun MainScreen(
     val context = LocalContext.current
     val uiState by repoViewModel.uiState.collectAsState()
     val themeMode by themeViewModel.themeMode.collectAsState()
+    val currentFilter by repoViewModel.currentFilter.collectAsState()
+    val filteredRepos by repoViewModel.filteredRepos.collectAsState()
+    val showPrivateWarning by repoViewModel.showPrivateWarning.collectAsState()
     
     var showThemeDialog by remember { mutableStateOf(false) }
     var showUploadSheet by remember { mutableStateOf(false) }
@@ -76,6 +81,26 @@ fun MainScreen(
                 },
                 onThemeSelect = { showThemeDialog = true }
             )
+        },
+        bottomBar = {
+            NavigationBar(
+                modifier = Modifier.testTag("repo_navigation_bar")
+            ) {
+                NavigationBarItem(
+                    selected = currentFilter == RepoFilter.PUBLIC,
+                    onClick = { repoViewModel.selectFilter(RepoFilter.PUBLIC) },
+                    icon = { Icon(imageVector = Icons.Outlined.Public, contentDescription = "Public repositories") },
+                    label = { Text("Public") },
+                    modifier = Modifier.testTag("public_tab")
+                )
+                NavigationBarItem(
+                    selected = currentFilter == RepoFilter.PRIVATE,
+                    onClick = { repoViewModel.selectFilter(RepoFilter.PRIVATE) },
+                    icon = { Icon(imageVector = Icons.Outlined.Lock, contentDescription = "Private repositories") },
+                    label = { Text("Private") },
+                    modifier = Modifier.testTag("private_tab")
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -116,7 +141,7 @@ fun MainScreen(
                     ) {
                         ShimmerEffectList()
                     }
-                } else if (uiState.repos.isEmpty()) {
+                } else if (filteredRepos.isEmpty()) {
                     // Styled empty state container
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -145,7 +170,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
-                            text = "No Repositories Found",
+                            text = if (currentFilter == RepoFilter.PUBLIC) "No Public Repositories" else "No Private Repositories",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -154,7 +179,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Your repository list appears to be empty. Touch the '+' button below to push your first local project directory securely onto GitHub.",
+                            text = if (currentFilter == RepoFilter.PUBLIC) "Your public repository list is currently empty. Touch the '+' button below to upload local projects." else "Your private repository list is empty under this account.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -181,7 +206,7 @@ fun MainScreen(
                             .align(Alignment.TopCenter)
                     ) {
                         items(
-                            items = uiState.repos,
+                            items = filteredRepos,
                             key = { it.id }
                         ) { repo ->
                             RepoItem(
@@ -198,7 +223,7 @@ fun MainScreen(
                         }
 
                         // Bottom spinner loading more items
-                        if (uiState.isLoading && uiState.repos.isNotEmpty()) {
+                        if (uiState.isLoading && filteredRepos.isNotEmpty()) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -287,6 +312,43 @@ fun MainScreen(
                 repoViewModel.refresh()
             },
             onDismissRequest = { showUploadSheet = false }
+        )
+    }
+
+    // Warning confirmation dialog for private repositories
+    if (showPrivateWarning) {
+        AlertDialog(
+            onDismissRequest = { repoViewModel.onPrivateWarningResult(false) },
+            title = {
+                Text(
+                    text = "Private Repositories",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "You are about to view your private repositories. These contain sensitive code. Continue?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { repoViewModel.onPrivateWarningResult(true) },
+                    modifier = Modifier.testTag("warning_confirm_button")
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { repoViewModel.onPrivateWarningResult(false) },
+                    modifier = Modifier.testTag("warning_cancel_button")
+                ) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }

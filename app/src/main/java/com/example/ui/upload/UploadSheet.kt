@@ -66,6 +66,10 @@ fun UploadSheet(
         }
     }
 
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
     ModalBottomSheet(
         onDismissRequest = {
             // Dismiss only if we aren't currently deploying
@@ -73,6 +77,7 @@ fun UploadSheet(
                 onDismissRequest()
             }
         },
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         modifier = modifier.fillMaxHeight(0.75f)
     ) {

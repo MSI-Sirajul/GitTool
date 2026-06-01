@@ -12,6 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+
+enum class RepoFilter {
+    PUBLIC, PRIVATE
+}
 
 data class RepoListUiState(
     val user: GitHubUser? = null,
@@ -30,6 +37,34 @@ class RepoListViewModel(
 
     private val _uiState = MutableStateFlow(RepoListUiState())
     val uiState: StateFlow<RepoListUiState> = _uiState.asStateFlow()
+
+    private val _currentFilter = MutableStateFlow(RepoFilter.PUBLIC)
+    val currentFilter: StateFlow<RepoFilter> = _currentFilter.asStateFlow()
+
+    private val _showPrivateWarning = MutableStateFlow(false)
+    val showPrivateWarning: StateFlow<Boolean> = _showPrivateWarning.asStateFlow()
+
+    private var privateWarningAccepted = false
+
+    val filteredRepos: StateFlow<List<GitHubRepo>> = combine(uiState, currentFilter) { state, filter ->
+        state.repos.filter { it.private == (filter == RepoFilter.PRIVATE) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun selectFilter(filter: RepoFilter) {
+        if (filter == RepoFilter.PRIVATE && !privateWarningAccepted) {
+            _showPrivateWarning.value = true
+        } else {
+            _currentFilter.value = filter
+        }
+    }
+
+    fun onPrivateWarningResult(accepted: Boolean) {
+        _showPrivateWarning.value = false
+        if (accepted) {
+            privateWarningAccepted = true
+            _currentFilter.value = RepoFilter.PRIVATE
+        }
+    }
 
     init {
         loadUserAndRepos()
