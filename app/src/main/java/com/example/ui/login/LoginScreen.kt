@@ -163,6 +163,8 @@ fun LoginScreen(
                         if (targetTab == 0) {
                             // OAuth Panel
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                var showCustomConfig by remember { mutableStateOf(false) }
+
                                 Button(
                                     onClick = {
                                         viewModel.startOAuthFlow { url ->
@@ -187,6 +189,66 @@ fun LoginScreen(
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
+
+                                TextButton(
+                                    onClick = { showCustomConfig = !showCustomConfig },
+                                    modifier = Modifier.testTag("toggle_custom_oauth_button")
+                                ) {
+                                    Text(
+                                        text = if (showCustomConfig) "Hide Custom OAuth Config" else "Use Custom OAuth App Credentials",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = showCustomConfig) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = uiState.oauthClientIdInput,
+                                            onValueChange = { viewModel.updateOauthClientId(it) },
+                                            label = { Text("Client ID") },
+                                            placeholder = { Text("Ov23...") },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("oauth_client_id_field")
+                                        )
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        OutlinedTextField(
+                                            value = uiState.oauthClientSecretInput,
+                                            onValueChange = { viewModel.updateOauthClientSecret(it) },
+                                            label = { Text("Client Secret (Optional)") },
+                                            placeholder = { Text("Leave blank if using PKCE-only") },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("oauth_client_secret_field")
+                                        )
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        OutlinedTextField(
+                                            value = uiState.oauthRedirectUriInput,
+                                            onValueChange = { viewModel.updateOauthRedirectUri(it) },
+                                            label = { Text("Redirect URI") },
+                                            placeholder = { Text("gittool://callback") },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("oauth_redirect_uri_field")
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                    }
+                                }
 
                                 Text(
                                     text = "Redirects to GitHub's authorization portal safely via custom web intents.",

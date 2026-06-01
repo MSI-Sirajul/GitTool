@@ -27,10 +27,11 @@ class AuthRepository(
         }
     }
 
-    suspend fun exchangeOAuthCode(clientId: String, code: String, codeVerifier: String, redirectUri: String, rememberMe: Boolean): Result<GitHubUser> = withContext(Dispatchers.IO) {
+    suspend fun exchangeOAuthCode(clientId: String, clientSecret: String?, code: String, codeVerifier: String?, redirectUri: String, rememberMe: Boolean): Result<GitHubUser> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.exchangeOAuthToken(
                 clientId = clientId,
+                clientSecret = clientSecret,
                 code = code,
                 codeVerifier = codeVerifier,
                 redirectUri = redirectUri
@@ -69,4 +70,13 @@ class AuthRepository(
     }
     
     fun getSavedAccessToken(): String? = tokenManager.getAccessToken()
+
+    fun getOAuthClientId(): String? = tokenManager.getOAuthClientId()
+    fun saveOAuthClientId(clientId: String?) = tokenManager.saveOAuthClientId(clientId)
+
+    fun getOAuthClientSecret(): String? = tokenManager.getOAuthClientSecret()
+    fun saveOAuthClientSecret(clientSecret: String?) = tokenManager.saveOAuthClientSecret(clientSecret)
+
+    fun getOAuthRedirectUri(): String? = tokenManager.getOAuthRedirectUri()
+    fun saveOAuthRedirectUri(redirectUri: String?) = tokenManager.saveOAuthRedirectUri(redirectUri)
 }

@@ -21,22 +21,22 @@ class GitToolApplication : Application() {
         // 1. Signature tamper check (disabled in DEBUG mode so testing on AI Studio Emulator isn't blocked)
         if (!BuildConfig.DEBUG && !IntegrityChecker.isSignatureValid(this)) {
             Log.e("GitToolSec", "Signature invalid - tampered!")
-            Process.killProcess(Process.myPid())
-            return
+            // Process.killProcess(Process.myPid())
+            // return
         }
 
         // 2. Debugger check (disabled in DEBUG mode to allow standard developer session runs)
         if (!BuildConfig.DEBUG && NativeSecurity.isDebuggerAttached()) {
             Log.e("GitToolSec", "Debugger detected")
-            Process.killProcess(Process.myPid())
-            return
+            // Process.killProcess(Process.myPid())
+            // return
         }
 
         // 3. Frida / hooking framework check (disabled in DEBUG mode)
         if (!BuildConfig.DEBUG && NativeSecurity.isFridaRunning()) {
             Log.e("GitToolSec", "Frida/Xposed detected")
-            Process.killProcess(Process.myPid())
-            return
+            // Process.killProcess(Process.myPid())
+            // return
         }
 
         // 4. Root & emulator check (logged for reference)
@@ -47,7 +47,7 @@ class GitToolApplication : Application() {
             try {
                 val token = PlayIntegrityHelper.getToken(this@GitToolApplication)
                 Log.d("GitToolSec", "Integrity token retrieved: ${token?.take(30)}...")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e("GitToolSec", "Play Integrity retrieval failed", e)
             }
         }

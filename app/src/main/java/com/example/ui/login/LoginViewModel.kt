@@ -16,7 +16,10 @@ data class LoginUiState(
     val rememberMe: Boolean = true,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isLoginSuccess: Boolean = false
+    val isLoginSuccess: Boolean = false,
+    val oauthClientIdInput: String = "",
+    val oauthClientSecretInput: String = "",
+    val oauthRedirectUriInput: String = ""
 )
 
 class LoginViewModel(
@@ -25,6 +28,35 @@ class LoginViewModel(
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    init {
+        val savedId = authRepository.getOAuthClientId() ?: Constants.GITHUB_CLIENT_ID
+        val savedSecret = authRepository.getOAuthClientSecret() ?: ""
+        val savedRedirect = authRepository.getOAuthRedirectUri() ?: Constants.GITHUB_REDIRECT_URI
+
+        _uiState.update {
+            it.copy(
+                oauthClientIdInput = savedId,
+                oauthClientSecretInput = savedSecret,
+                oauthRedirectUriInput = savedRedirect
+            )
+        }
+    }
+
+    fun updateOauthClientId(id: String) {
+        _uiState.update { it.copy(oauthClientIdInput = id, errorMessage = null) }
+        authRepository.saveOAuthClientId(id)
+    }
+
+    fun updateOauthClientSecret(secret: String) {
+        _uiState.update { it.copy(oauthClientSecretInput = secret, errorMessage = null) }
+        authRepository.saveOAuthClientSecret(secret)
+    }
+
+    fun updateOauthRedirectUri(uri: String) {
+        _uiState.update { it.copy(oauthRedirectUriInput = uri, errorMessage = null) }
+        authRepository.saveOAuthRedirectUri(uri)
+    }
 
     fun updateTokenInput(token: String) {
         _uiState.update { it.copy(tokenInput = token, errorMessage = null) }
@@ -57,16 +89,13 @@ class LoginViewModel(
     }
 
     fun handleOAuthRedirectCode(code: String) {
-        val clientId = Constants.GITHUB_CLIENT_ID
-        val verifier = savedCodeVerifier ?: ""
+        val clientId = _uiState.value.oauthClientIdInput.trim()
+        val clientSecret = _uiState.value.oauthClientSecretInput.trim().ifEmpty { null }
+        val redirectUri = _uiState.value.oauthRedirectUriInput.trim().ifEmpty { Constants.GITHUB_REDIRECT_URI }
+        val verifier = savedCodeVerifier
 
         if (clientId.isEmpty()) {
             _uiState.update { it.copy(errorMessage = "GitHub Client ID is missing!") }
-            return
-        }
-
-        if (verifier.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "Authentication failed: code verifier not found.") }
             return
         }
 
@@ -74,9 +103,10 @@ class LoginViewModel(
         viewModelScope.launch {
             val result = authRepository.exchangeOAuthCode(
                 clientId = clientId,
+                clientSecret = clientSecret,
                 code = code,
                 codeVerifier = verifier,
-                redirectUri = Constants.GITHUB_REDIRECT_URI,
+                redirectUri = redirectUri,
                 rememberMe = _uiState.value.rememberMe
             )
             result.onSuccess {
@@ -89,9 +119,11 @@ class LoginViewModel(
 
     fun startOAuthFlow(onTriggerUrl: (String) -> Unit) {
         clearError()
-        val clientId = Constants.GITHUB_CLIENT_ID
+        val clientId = _uiState.value.oauthClientIdInput.trim()
+        val redirectUri = _uiState.value.oauthRedirectUriInput.trim().ifEmpty { Constants.GITHUB_REDIRECT_URI }
+
         if (clientId.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "GitHub client ID is missing.") }
+            _uiState.update { it.copy(errorMessage = "GitHub client ID is required.") }
             return
         }
         val verifier = com.example.util.PkceUtil.generateCodeVerifier()
@@ -99,7 +131,7 @@ class LoginViewModel(
         
         val challenge = com.example.util.PkceUtil.generateCodeChallenge(verifier)
         val url = "${Constants.GITHUB_OAUTH_AUTHORIZE_URL}?client_id=$clientId" +
-                "&redirect_uri=${Constants.GITHUB_REDIRECT_URI}" +
+                "&redirect_uri=$redirectUri" +
                 "&scope=repo,user" +
                 "&code_challenge=$challenge" +
                 "&code_challenge_method=S256"

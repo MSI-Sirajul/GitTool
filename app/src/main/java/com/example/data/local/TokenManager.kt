@@ -25,6 +25,33 @@ class TokenManager(context: Context) {
         private const val KEY_ACCESS_TOKEN = "github_access_token"
         private const val KEY_USERNAME = "github_username"
         private const val KEY_REMEMBER_ME = "github_remember_me"
+        private const val KEY_OAUTH_CLIENT_ID = "github_oauth_client_id"
+        private const val KEY_OAUTH_CLIENT_SECRET = "github_oauth_client_secret"
+        private const val KEY_OAUTH_REDIRECT_URI = "github_oauth_redirect_uri"
+    }
+
+    fun saveOAuthClientId(clientId: String?) {
+        sharedPrefs.edit().putString(KEY_OAUTH_CLIENT_ID, clientId).apply()
+    }
+
+    fun getOAuthClientId(): String? {
+        return sharedPrefs.getString(KEY_OAUTH_CLIENT_ID, null)
+    }
+
+    fun saveOAuthClientSecret(clientSecret: String?) {
+        sharedPrefs.edit().putString(KEY_OAUTH_CLIENT_SECRET, clientSecret).apply()
+    }
+
+    fun getOAuthClientSecret(): String? {
+        return sharedPrefs.getString(KEY_OAUTH_CLIENT_SECRET, null)
+    }
+
+    fun saveOAuthRedirectUri(redirectUri: String?) {
+        sharedPrefs.edit().putString(KEY_OAUTH_REDIRECT_URI, redirectUri).apply()
+    }
+
+    fun getOAuthRedirectUri(): String? {
+        return sharedPrefs.getString(KEY_OAUTH_REDIRECT_URI, null)
     }
 
     fun saveAccessToken(token: String?) {
