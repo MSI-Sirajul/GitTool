@@ -1,17 +1,22 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,6 +29,10 @@ fun TopBarWithMenu(
     user: GitHubUser?,
     onLogout: () -> Unit,
     onThemeSelect: () -> Unit,
+    onProfileClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onNotificationsClick: () -> Unit,
+    unreadNotificationsCount: Int = 3, // stylized unread count
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -32,7 +41,12 @@ fun TopBarWithMenu(
         title = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onProfileClick)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag("top_bar_profile_info")
             ) {
                 if (user != null) {
                     val displayName = if (!user.name.isNullOrBlank()) user.name else user.login
@@ -52,7 +66,7 @@ fun TopBarWithMenu(
                     )
                 } else {
                     Text(
-                        text = "Profile",
+                        text = "GitTool",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -65,22 +79,54 @@ fun TopBarWithMenu(
             if (user?.avatar_url != null) {
                 AsyncImage(
                     model = user.avatar_url,
-                    contentDescription = "User GitHub circular profile picture",
+                    contentDescription = "User profile picture",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .padding(start = 12.dp)
                         .size(36.dp)
                         .clip(CircleShape)
+                        .clickable(onClick = onProfileClick)
+                        .testTag("top_bar_profile_avatar")
                 )
             } else {
                 Spacer(modifier = Modifier.width(48.dp))
             }
         },
         actions = {
+            IconButton(
+                onClick = onSearchClick,
+                modifier = Modifier.testTag("top_bar_search_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search repositories"
+                )
+            }
+
+            IconButton(
+                onClick = onNotificationsClick,
+                modifier = Modifier.testTag("top_bar_notifications_button")
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (unreadNotificationsCount > 0) {
+                            Badge {
+                                Text("$unreadNotificationsCount")
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "Notifications"
+                    )
+                }
+            }
+
             IconButton(onClick = { showMenu = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "GitTool overflow configuration keys"
+                    contentDescription = "Overflow settings"
                 )
             }
 
@@ -97,7 +143,7 @@ fun TopBarWithMenu(
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Palette,
-                            contentDescription = "Theme palette configuration trigger"
+                            contentDescription = "Theme selection"
                         )
                     }
                 )
@@ -111,7 +157,7 @@ fun TopBarWithMenu(
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
-                            contentDescription = "Logout current application session"
+                            contentDescription = "Log out"
                         )
                     }
                 )

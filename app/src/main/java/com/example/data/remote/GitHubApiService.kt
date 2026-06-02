@@ -62,6 +62,72 @@ interface GitHubApiService {
         @Path("repo") repo: String,
         @Body body: CreateRefRequest
     ): RepoRefResponse
+
+    // --- Search ---
+    @GET("search/repositories")
+    suspend fun searchRepositories(
+        @Query("q") query: String,
+        @Query("sort") sort: String? = null,
+        @Query("order") order: String? = null,
+        @Query("per_page") perPage: Int = 20
+    ): GitHubSearchResponse<GitHubRepo>
+
+    @GET("search/users")
+    suspend fun searchUsers(
+        @Query("q") query: String,
+        @Query("per_page") perPage: Int = 20
+    ): GitHubSearchResponse<GitHubUser>
+
+    // --- Contents & Files ---
+    @GET("repos/{owner}/{repo}/contents/{path}")
+    suspend fun getRepoContents(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("path") path: String
+    ): List<GitHubContentItem>
+
+    @GET("repos/{owner}/{repo}/contents")
+    suspend fun getRepoRootContents(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): List<GitHubContentItem>
+
+    @GET("repos/{owner}/{repo}/contents/{path}")
+    suspend fun getRepoFileContent(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("path") path: String
+    ): GitHubFileContentResponse
+
+    // --- Forks & Imports ---
+    @POST("repos/{owner}/{repo}/forks")
+    suspend fun createFork(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): GitHubRepo
+
+    // --- User Profile ---
+    @PATCH("user")
+    suspend fun updateCurrentUser(
+        @Body body: UpdateUserRequest
+    ): GitHubUser
+
+    // --- Notifications ---
+    @GET("notifications")
+    suspend fun getNotifications(
+        @Query("all") all: Boolean = true,
+        @Query("per_page") perPage: Int = 30
+    ): List<GitHubNotification>
+
+    @PATCH("notifications/threads/{id}")
+    suspend fun markNotificationAsRead(
+        @Path("id") id: String
+    ): retrofit2.Response<Unit>
+
+    @PUT("notifications")
+    suspend fun markAllNotificationsAsRead(
+        @Body body: MarkAllReadRequest = MarkAllReadRequest()
+    ): retrofit2.Response<Unit>
 }
 
 @JsonClass(generateAdapter = true)

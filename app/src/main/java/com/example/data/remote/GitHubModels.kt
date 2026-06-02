@@ -8,7 +8,14 @@ data class GitHubUser(
     val id: Long,
     val avatar_url: String?,
     val name: String?,
-    val html_url: String?
+    val html_url: String?,
+    val bio: String? = null,
+    val blog: String? = null,
+    val company: String? = null,
+    val location: String? = null,
+    val followers: Int? = 0,
+    val following: Int? = 0,
+    val public_repos: Int? = 0
 )
 
 @JsonClass(generateAdapter = true)
@@ -101,5 +108,70 @@ data class RefObject(
 data class RepoRefResponse(
     val ref: String,
     val `object`: RefObject
+)
+
+@JsonClass(generateAdapter = true)
+data class GitHubSearchResponse<T>(
+    val total_count: Int,
+    val incomplete_results: Boolean,
+    val items: List<T>
+)
+
+@JsonClass(generateAdapter = true)
+data class GitHubContentItem(
+    val name: String,
+    val path: String,
+    val sha: String,
+    val size: Long,
+    val url: String,
+    val html_url: String?,
+    val git_url: String?,
+    val download_url: String?,
+    val type: String
+)
+
+@JsonClass(generateAdapter = true)
+data class GitHubFileContentResponse(
+    val name: String,
+    val path: String,
+    val sha: String,
+    val size: Long,
+    val url: String,
+    val html_url: String?,
+    val download_url: String?,
+    val type: String,
+    val content: String?,
+    val encoding: String?
+)
+
+@JsonClass(generateAdapter = true)
+data class UpdateUserRequest(
+    val name: String? = null,
+    val bio: String? = null,
+    val blog: String? = null,
+    val location: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GitHubNotification(
+    val id: String,
+    val unread: Boolean,
+    val reason: String,
+    val updated_at: String,
+    val subject: NotificationSubject,
+    val repository: GitHubRepo
+)
+
+@JsonClass(generateAdapter = true)
+data class NotificationSubject(
+    val title: String,
+    val url: String?,
+    val latest_comment_url: String?,
+    val type: String
+)
+
+@JsonClass(generateAdapter = true)
+data class MarkAllReadRequest(
+    val last_read_at: String? = null
 )
 

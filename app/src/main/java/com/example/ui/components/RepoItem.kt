@@ -2,19 +2,22 @@ package com.example.ui.components
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ForkRight
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,17 +34,23 @@ import com.example.data.remote.GitHubRepo
 @Composable
 fun RepoItem(
     repo: GitHubRepo,
+    isBookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
     onOpenInBrowser: (String) -> Unit,
+    onDownloadZip: () -> Unit,
+    onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
+    var showMenu by remember { mutableStateOf(false) }
 
     ElevatedCard(
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
         modifier = modifier
             .fillMaxWidth()
+            .clickable(onClick = onCardClick)
             .testTag("repo_item_card_${repo.id}")
     ) {
         Column(
@@ -65,29 +74,120 @@ fun RepoItem(
                     modifier = Modifier.weight(1f)
                 )
                 
-                // Visibility chip
-                Surface(
-                    color = if (repo.private) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Star bookmark Indicator
+                    IconButton(
+                        onClick = onToggleBookmark,
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
-                            imageVector = if (repo.private) Icons.Default.Lock else Icons.Default.Public,
-                            contentDescription = if (repo.private) "Private repo" else "Public repo",
-                            tint = if (repo.private) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(12.dp)
+                            imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = "Toggle bookmark",
+                            tint = if (isBookmarked) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (repo.private) "Private" else "Public",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (repo.private) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Visibility badge
+                    Surface(
+                        color = if (repo.private) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (repo.private) Icons.Default.Lock else Icons.Default.Public,
+                                contentDescription = if (repo.private) "Private repo" else "Public repo",
+                                tint = if (repo.private) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (repo.private) "Private" else "Public",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (repo.private) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Core 3-dot dropdown menu
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(28.dp).testTag("repo_item_menu_button_${repo.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (isBookmarked) "Remove Bookmark" else "Bookmark Repository") },
+                                onClick = {
+                                    showMenu = false
+                                    onToggleBookmark()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Copy Clone URL") },
+                                onClick = {
+                                    showMenu = false
+                                    clipboardManager.setText(AnnotatedString(repo.clone_url))
+                                    Toast.makeText(context, "Url copied to clipboard.", Toast.LENGTH_SHORT).show()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Open in Browser") },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenInBrowser(repo.html_url)
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.OpenInBrowser,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Download as ZIP") },
+                                onClick = {
+                                    showMenu = false
+                                    onDownloadZip()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.FileDownload,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -105,13 +205,12 @@ fun RepoItem(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Footer statistics & fast action keys
+            // Footer info
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Stats row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -163,44 +262,6 @@ fun RepoItem(
                             text = repo.forks_count.toString(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Quick actions
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Copy URL
-                    IconButton(
-                        onClick = {
-                            clipboardManager.setText(AnnotatedString(repo.clone_url))
-                            Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .testTag("copy_clone_url_button_${repo.id}")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy clone URL to clipboard",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Launch in browser
-                    IconButton(
-                        onClick = { onOpenInBrowser(repo.html_url) },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .testTag("open_in_browser_button_${repo.id}")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInBrowser,
-                            contentDescription = "Open in browser",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

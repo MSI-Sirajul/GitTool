@@ -159,7 +159,86 @@ fun NavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Main.route) { inclusive = true }
                     }
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
+                },
+                onNotificationsClick = {
+                    navController.navigate(Screen.Notifications.route)
+                },
+                onRepoClick = { owner, repo ->
+                    navController.navigate(Screen.FileBrowser.createRoute(owner, repo))
                 }
+            )
+        }
+
+        // 4. SEARCH SCREEN
+        composable(Screen.Search.route) {
+            val searchViewModel: com.example.ui.search.SearchViewModel = viewModel(
+                factory = com.example.ui.search.SearchViewModel.Factory(container.repoRepository)
+            )
+            com.example.ui.search.SearchScreen(
+                viewModel = searchViewModel,
+                onBackClick = { navController.popBackStack() },
+                onRepoClick = { owner, repo ->
+                    navController.navigate(Screen.FileBrowser.createRoute(owner, repo))
+                }
+            )
+        }
+
+        // 5. ACTIVITY FEED SCREEN
+        composable(Screen.Notifications.route) {
+            val notificationViewModel: com.example.ui.notifications.NotificationViewModel = viewModel(
+                factory = com.example.ui.notifications.NotificationViewModel.Factory(container.repoRepository)
+            )
+            com.example.ui.notifications.NotificationsScreen(
+                viewModel = notificationViewModel,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // 6. FILE EXPLORER SCREEN
+        composable(
+            route = Screen.FileBrowser.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("owner") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("repo") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val owner = backStackEntry.arguments?.getString("owner") ?: ""
+            val repo = backStackEntry.arguments?.getString("repo") ?: ""
+            val fileBrowserViewModel: com.example.ui.filebrowser.FileBrowserViewModel = viewModel(
+                factory = com.example.ui.filebrowser.FileBrowserViewModel.Factory(container.repoRepository, owner, repo)
+            )
+            com.example.ui.filebrowser.FileBrowserScreen(
+                viewModel = fileBrowserViewModel,
+                onBackClick = { navController.popBackStack() },
+                onFileClick = { fileOwner, fileRepo, filePath ->
+                    navController.navigate(Screen.FileViewer.createRoute(fileOwner, fileRepo, filePath))
+                }
+            )
+        }
+
+        // 7. FILE VIEWER SCREEN
+        composable(
+            route = Screen.FileViewer.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("owner") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("repo") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("path") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val owner = backStackEntry.arguments?.getString("owner") ?: ""
+            val repo = backStackEntry.arguments?.getString("repo") ?: ""
+            val rawPath = backStackEntry.arguments?.getString("path") ?: ""
+            val decodedPath = android.net.Uri.decode(rawPath)
+            
+            val fileViewerViewModel: com.example.ui.filebrowser.FileViewerViewModel = viewModel(
+                factory = com.example.ui.filebrowser.FileViewerViewModel.Factory(container.repoRepository, owner, repo, decodedPath)
+            )
+            com.example.ui.filebrowser.FileViewerScreen(
+                viewModel = fileViewerViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

@@ -1,5 +1,6 @@
 package com.example.ui.main
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -7,27 +8,20 @@ import com.example.data.repository.AuthRepository
 import com.example.data.repository.RepoRepository
 import com.example.data.remote.GitHubRepo
 import com.example.data.remote.GitHubUser
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 
 enum class RepoFilter {
-    PUBLIC, PRIVATE
+    PUBLIC, BOOKMARKS, PRIVATE
 }
 
 data class RepoListUiState(
     val user: GitHubUser? = null,
-    val repos: List<GitHubRepo> = emptyList(),
+    val publicRepos: List<GitHubRepo> = emptyList(),
+    val privateRepos: List<GitHubRepo> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val errorMessage: String? = null,
-    val page: Int = 1,
-    val hasMore: Boolean = true
+    val errorMessage: String? = null
 )
 
 class RepoListViewModel(
@@ -46,8 +40,19 @@ class RepoListViewModel(
 
     private var privateWarningAccepted = false
 
-    val filteredRepos: StateFlow<List<GitHubRepo>> = combine(uiState, currentFilter) { state, filter ->
-        state.repos.filter { it.private == (filter == RepoFilter.PRIVATE) }
+    val bookmarksFlow: StateFlow<List<GitHubRepo>> = repoRepository.bookmarks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredRepos: StateFlow<List<GitHubRepo>> = combine(
+        uiState,
+        _currentFilter,
+        bookmarksFlow
+    ) { state, filter, bookmarks ->
+        when (filter) {
+            RepoFilter.PUBLIC -> state.publicRepos
+            RepoFilter.PRIVATE -> state.privateRepos
+            RepoFilter.BOOKMARKS -> bookmarks
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun selectFilter(filter: RepoFilter) {
@@ -66,63 +71,99 @@ class RepoListViewModel(
         }
     }
 
-    init {
-        loadUserAndRepos()
-    }
-
-    fun loadUserAndRepos() {
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+    fun loadUserAndRepos(context: Context, forceRefresh: Boolean = false) {
+        _uiState.update { it.copy(isLoading = !forceRefresh, isRefreshing = forceRefresh, errorMessage = null) }
         viewModelScope.launch {
+            // Read User details
             val userResult = repoRepository.getCurrentUser()
             userResult.onSuccess { user ->
                 _uiState.update { it.copy(user = user) }
             }.onFailure { error ->
-                _uiState.update { it.copy(errorMessage = "Profile check failed: ${error.message}") }
+                _uiState.update { it.copy(errorMessage = "Profile load failed: ${error.localizedMessage}") }
             }
 
-            loadRepos(page = 1, append = false)
+            // Retrieve Public Repos
+            val publicResult = repoRepository.getUserRepos(isPrivateFeed = false, forceRefresh = forceRefresh, context = context)
+            publicResult.onSuccess { repos ->
+                _uiState.update { it.copy(publicRepos = repos) }
+            }.onFailure { error ->
+                _uiState.update { it.copy(errorMessage = "Failed to load public repositories: ${error.localizedMessage}") }
+            }
+
+            // Retrieve Private Repos
+            val privateResult = repoRepository.getUserRepos(isPrivateFeed = true, forceRefresh = forceRefresh, context = context)
+            privateResult.onSuccess { repos ->
+                _uiState.update { it.copy(privateRepos = repos) }
+            }
+
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
         }
     }
 
-    fun refresh() {
-        _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+    fun toggleBookmark(repo: GitHubRepo) {
         viewModelScope.launch {
-            val userResult = repoRepository.getCurrentUser()
-            userResult.onSuccess { user ->
-                _uiState.update { it.copy(user = user) }
-            }
-            loadRepos(page = 1, append = false)
-            _uiState.update { it.copy(isRefreshing = false) }
+            repoRepository.toggleBookmark(repo)
         }
     }
 
-    fun loadNextPage() {
-        val currentState = _uiState.value
-        if (currentState.isLoading || currentState.isRefreshing || !currentState.hasMore) return
-        val nextPage = currentState.page + 1
+    fun isBookmarkedFlow(id: Long): Flow<Boolean> = repoRepository.isBookmarkedFlow(id)
+
+    fun updateProfile(
+        name: String?,
+        bio: String?,
+        blog: String?,
+        location: String?,
+        onResult: (Boolean, String) -> Unit
+    ) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            loadRepos(page = nextPage, append = true)
+            val result = repoRepository.updateProfile(name, bio, blog, location)
+            _uiState.update { it.copy(isLoading = false) }
+            result.onSuccess { updatedUser ->
+                _uiState.update { it.copy(user = updatedUser) }
+                onResult(true, "Profile updated successfully.")
+            }.onFailure { error ->
+                onResult(false, error.localizedMessage ?: "Failed to update profile.")
+            }
         }
     }
 
-    private suspend fun loadRepos(page: Int, append: Boolean) {
-        val result = repoRepository.getUserRepos(page = page)
-        result.onSuccess { fetchedRepos ->
-            _uiState.update { state ->
-                val newRepos = if (append) state.repos + fetchedRepos else fetchedRepos
-                state.copy(
-                    repos = newRepos,
-                    isLoading = false,
-                    page = page,
-                    hasMore = fetchedRepos.size >= 30
-                )
+    fun forkRepo(owner: String, repoName: String, context: Context, onResult: (Boolean, String) -> Unit) {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            val result = repoRepository.createFork(owner, repoName)
+            _uiState.update { it.copy(isLoading = false) }
+            result.onSuccess { forkRepo ->
+                loadUserAndRepos(context, forceRefresh = true)
+                onResult(true, "Successfully forked: ${forkRepo.full_name}")
+            }.onFailure { error ->
+                onResult(false, error.localizedMessage ?: "Failed to fork repository.")
             }
-        }.onFailure { error ->
-            _uiState.update { it.copy(
-                isLoading = false,
-                errorMessage = error.message ?: "Failed to load repositories"
-            ) }
+        }
+    }
+
+    fun importExternalRepo(
+        url: String, 
+        context: Context, 
+        onResult: (Boolean, String) -> Unit
+    ) {
+        // Simple GitHub Import process inside the scope instruction: 
+        // 1. If github.com URL, we fork it if we can extract owner/repo
+        // 2. Otherwise, we inform that direct repo copying is done, creating fork or opening custom dialog
+        viewModelScope.launch {
+            val cleanUrl = url.trim()
+            if (cleanUrl.contains("github.com")) {
+                // Extract owner/repo
+                val parsed = cleanUrl.substringAfter("github.com/").removeSuffix(".git")
+                val parts = parsed.split("/")
+                if (parts.size >= 2) {
+                    val owner = parts[0]
+                    val repo = parts[1]
+                    forkRepo(owner, repo, context, onResult)
+                    return@launch
+                }
+            }
+            onResult(false, "Unrecognized or external Git import URLs are current Web beta items. Please support github.com URLs.")
         }
     }
 

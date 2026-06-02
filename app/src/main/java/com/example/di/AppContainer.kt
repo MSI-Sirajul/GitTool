@@ -1,6 +1,7 @@
 package com.example.di
 
 import android.content.Context
+import com.example.data.local.db.GitToolDatabase
 import com.example.data.local.ThemePreferences
 import com.example.data.local.TokenManager
 import com.example.data.remote.AuthManager
@@ -18,9 +19,14 @@ interface AppContainer {
     val repoRepository: RepoRepository
     val uploadRepository: UploadRepository
     val authManager: AuthManager
+    val database: GitToolDatabase
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    override val database: GitToolDatabase by lazy {
+        GitToolDatabase.getDatabase(context)
+    }
     
     override val tokenManager: TokenManager by lazy {
         TokenManager(context)
@@ -39,7 +45,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val repoRepository: RepoRepository by lazy {
-        RepoRepository(apiService, tokenManager)
+        RepoRepository(apiService, tokenManager, database.gitToolDao())
     }
 
     override val uploadRepository: UploadRepository by lazy {
