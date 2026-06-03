@@ -18,7 +18,7 @@
 -keep @com.squareup.moshi.JsonQualifier class * { *; }
 
 # Keep remote API model DTOs from reflection failures in shrinking
--keep class com.example.data.remote.** { *; }
+-keep class com.msi.gittool.data.remote.** { *; }
 
 # Security Crypto rules
 -dontwarn javax.annotation.Nullable
