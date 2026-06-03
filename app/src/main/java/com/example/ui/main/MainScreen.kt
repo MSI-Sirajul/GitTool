@@ -11,6 +11,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -288,7 +290,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .widthIn(max = 480.dp)
-                                .align(Alignment.CenterHorizontally)
+                                .align(Alignment.Center)
                                 .padding(32.dp)
                         ) {
                             Surface(
@@ -371,23 +373,13 @@ fun MainScreen(
                                     onDownloadZip = {
                                         val parts = repo.full_name.split("/")
                                         if (parts.size >= 2) {
-                                            repoViewModel.viewModelScope.launch {
-                                                repoViewModel.logout() // Just trigger using context
-                                            }
-                                            // Call download
                                             Toast.makeText(context, "Initiating download sequence...", Toast.LENGTH_SHORT).show()
-                                            repoViewModel.viewModelScope.launch {
-                                                com.example.GitToolApplication().apply {
-                                                    // Standard async trigger
-                                                }
-                                            }
-                                            // Safely call repoRepository direct
-                                            val container = (context.applicationContext as com.example.GitToolApplication).container
-                                            container.repoRepository.let { repoRepo ->
-                                                repoViewModel.viewModelScope.launch {
-                                                    repoRepo.downloadRepoZip(context, parts[0], parts[1], repo.default_branch ?: "main")
-                                                }
-                                            }
+                                            repoViewModel.downloadRepositoryZip(
+                                                context = context,
+                                                owner = parts[0],
+                                                repoName = parts[1],
+                                                branch = repo.default_branch ?: "main"
+                                            )
                                         }
                                     },
                                     onCardClick = {
@@ -711,6 +703,32 @@ fun MainScreen(
                 }
             },
             shape = RoundedCornerShape(16.dp)
+        )
+    }
+}
+
+@Composable
+fun ThemeOptionRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge
         )
     }
 }

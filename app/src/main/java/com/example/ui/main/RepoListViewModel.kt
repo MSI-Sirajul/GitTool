@@ -171,6 +171,12 @@ class RepoListViewModel(
         authRepository.logout()
     }
 
+    fun downloadRepositoryZip(context: Context, owner: String, repoName: String, branch: String) {
+        viewModelScope.launch {
+            repoRepository.downloadRepoZip(context, owner, repoName, branch)
+        }
+    }
+
     companion object {
         fun Factory(repoRepository: RepoRepository, authRepository: AuthRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
