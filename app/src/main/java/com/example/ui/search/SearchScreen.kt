@@ -33,6 +33,7 @@ fun SearchScreen(
     viewModel: SearchViewModel,
     onBackClick: () -> Unit,
     onRepoClick: (owner: String, repo: String) -> Unit,
+    onUserClick: (username: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -174,7 +175,7 @@ fun SearchScreen(
                     is SearchUiState.Success -> {
                         if (selectedTabIndex == 0) {
                             // Repositories List
-                            if (state.repos.isEmpty()) {
+                            if (state.repos.isEmpty() && state.ownRepos.isEmpty()) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
@@ -187,12 +188,42 @@ fun SearchScreen(
                                     verticalArrangement = Arrangement.spacedBy(10.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    items(state.repos) { repo ->
-                                        SearchRepoCard(
-                                            repo = repo,
-                                            onRepoClick = { onRepoClick(repo.full_name.split("/")[0], repo.name) },
-                                            onToggleBookmark = { viewModel.toggleBookmark(repo) }
-                                        )
+                                    if (state.ownRepos.isNotEmpty()) {
+                                        item {
+                                            Text(
+                                                text = "Own Repositories",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(bottom = 8.dp)
+                                            )
+                                        }
+                                        items(state.ownRepos) { repo ->
+                                            SearchRepoCard(
+                                                repo = repo,
+                                                onRepoClick = { onRepoClick(repo.full_name.split("/")[0], repo.name) },
+                                                onToggleBookmark = { viewModel.toggleBookmark(repo) }
+                                            )
+                                        }
+                                    }
+
+                                    if (state.repos.isNotEmpty()) {
+                                        item {
+                                            Text(
+                                                text = "Public Search Directories",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                                            )
+                                        }
+                                        items(state.repos) { repo ->
+                                            SearchRepoCard(
+                                                repo = repo,
+                                                onRepoClick = { onRepoClick(repo.full_name.split("/")[0], repo.name) },
+                                                onToggleBookmark = { viewModel.toggleBookmark(repo) }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -211,8 +242,17 @@ fun SearchScreen(
                                     verticalArrangement = Arrangement.spacedBy(10.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
+                                    item {
+                                        Text(
+                                            text = "GitHub Users Profiles",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
                                     items(state.users) { user ->
-                                        SearchUserCard(user = user)
+                                        SearchUserCard(user = user, onUserClick = { onUserClick(user.login) })
                                     }
                                 }
                             }
@@ -301,6 +341,7 @@ fun SearchRepoCard(
 @Composable
 fun SearchUserCard(
     user: GitHubUser,
+    onUserClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -308,7 +349,9 @@ fun SearchUserCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         ),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onUserClick)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

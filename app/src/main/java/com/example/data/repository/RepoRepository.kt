@@ -268,6 +268,100 @@ class RepoRepository(
         }
     }
 
+    suspend fun getLocalCachedRepos(): List<GitHubRepo> {
+        val publicC = gitToolDao.getCachedRepos(false).map { it.toGitHubRepo() }
+        val privateC = gitToolDao.getCachedRepos(true).map { it.toGitHubRepo() }
+        return publicC + privateC
+    }
+
+    suspend fun getUserDetails(username: String): Result<GitHubUser> = withContext(Dispatchers.IO) {
+        if (tokenManager.isMockLogin()) {
+            return@withContext Result.success(
+                GitHubUser(
+                    login = username,
+                    id = username.hashCode().toLong(),
+                    avatar_url = "https://api.dicebear.com/7.x/bottts/svg?seed=$username",
+                    name = username.replaceFirstChar { it.uppercase() },
+                    html_url = "https://github.com/$username",
+                    bio = "Mock User Bio description for $username",
+                    followers = 125,
+                    following = 46,
+                    public_repos = 15
+                )
+            )
+        }
+        try {
+            val user = apiService.getUserDetails(username)
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserReposList(username: String): Result<List<GitHubRepo>> = withContext(Dispatchers.IO) {
+        if (tokenManager.isMockLogin()) {
+            return@withContext Result.success(
+                listOf(
+                    GitHubRepo(
+                        id = (username + "_repo1").hashCode().toLong(),
+                        name = "MockRepoOne",
+                        full_name = "$username/MockRepoOne",
+                        private = false,
+                        html_url = "https://github.com/$username/MockRepoOne",
+                        description = "Mock description for RepoOne",
+                        stargazers_count = 15,
+                        forks_count = 2,
+                        language = "Kotlin",
+                        clone_url = "https://github.com/$username/MockRepoOne.git"
+                    ),
+                    GitHubRepo(
+                        id = (username + "_repo2").hashCode().toLong(),
+                        name = "MockRepoTwo",
+                        full_name = "$username/MockRepoTwo",
+                        private = false,
+                        html_url = "https://github.com/$username/MockRepoTwo",
+                        description = "Mock description for RepoTwo",
+                        stargazers_count = 8,
+                        forks_count = 1,
+                        language = "Java",
+                        clone_url = "https://github.com/$username/MockRepoTwo.git"
+                    )
+                )
+            )
+        }
+        try {
+            val repos = apiService.getUserReposList(username)
+            Result.success(repos)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteRepo(owner: String, repoName: String, context: Context): Result<Unit> = withContext(Dispatchers.IO) {
+        if (tokenManager.isMockLogin()) {
+            val username = tokenManager.getUsername() ?: "local_user"
+            val json = tokenManager.getLocalUserReposJson(username)
+            if (!json.isNullOrEmpty()) {
+                val reposList = deserializeLocalUserRepos(json)
+                val updated = reposList.filterNot { it.name.equals(repoName, ignoreCase = true) }
+                saveLocalUserRepos(username, updated)
+            }
+            return@withContext Result.success(Unit)
+        }
+        try {
+            val response = apiService.deleteRepo(owner, repoName)
+            if (response.isSuccessful) {
+                val fullName = "$owner/$repoName"
+                gitToolDao.deleteCachedRepoByName(fullName)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to delete from GitHub: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // --- User Profile ---
     suspend fun updateProfile(name: String?, bio: String?, blog: String?, location: String?): Result<GitHubUser> = withContext(Dispatchers.IO) {
         try {
@@ -342,12 +436,15 @@ class RepoRepository(
                     return@withContext
                 }
 
-                val savedUri = saveFileToDownloads(context, fileName, mimeType, body.byteStream())
+                val totalBytes = body.contentLength()
+                val savedUri = saveFileToDownloads(context, fileName, mimeType, body.byteStream(), totalBytes)
                 if (savedUri != null) {
-                    NotificationHelper.showNotification(
+                    NotificationHelper.showDownloadCompleteNotification(
                         context,
                         "Repository Downloaded Successfully",
-                        "Saved $fileName to your device Downloads folder."
+                        "Saved $fileName to your device Downloads folder.",
+                        fileName.hashCode(),
+                        fileName
                     )
                 } else {
                     NotificationHelper.showNotification(
@@ -399,12 +496,15 @@ class RepoRepository(
                     return@withContext
                 }
 
-                val savedUri = saveFileToDownloads(context, fileName, "application/octet-stream", body.byteStream())
+                val totalBytes = body.contentLength()
+                val savedUri = saveFileToDownloads(context, fileName, "application/octet-stream", body.byteStream(), totalBytes)
                 if (savedUri != null) {
-                    NotificationHelper.showNotification(
+                    NotificationHelper.showDownloadCompleteNotification(
                         context,
                         "File Download Completed",
-                        "Successfully saved $fileName inside system Downloads."
+                        "Successfully saved $fileName inside system Downloads.",
+                        fileName.hashCode(),
+                        fileName
                     )
                 } else {
                     NotificationHelper.showNotification(
@@ -423,7 +523,13 @@ class RepoRepository(
         }
     }
 
-    private fun saveFileToDownloads(context: Context, fileName: String, mimeType: String, inputStream: InputStream): Uri? {
+    private fun saveFileToDownloads(
+        context: Context,
+        fileName: String,
+        mimeType: String,
+        inputStream: InputStream,
+        totalBytes: Long = -1L
+    ): Uri? {
         val resolver = context.contentResolver
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -435,13 +541,36 @@ class RepoRepository(
 
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues) ?: return null
         var outputStream: OutputStream? = null
+        val notificationId = fileName.hashCode()
         try {
             outputStream = resolver.openOutputStream(uri)
             if (outputStream == null) return null
             val buffer = ByteArray(8192)
             var bytesRead: Int
+            var totalRead: Long = 0L
             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                 outputStream.write(buffer, 0, bytesRead)
+                totalRead += bytesRead
+                if (totalBytes > 0) {
+                    val progress = (totalRead * 100 / totalBytes).toInt()
+                    NotificationHelper.showProgressNotification(
+                        context,
+                        "Downloading $fileName",
+                        "Progress: $progress%",
+                        progress,
+                        100,
+                        notificationId
+                    )
+                } else {
+                    NotificationHelper.showProgressNotification(
+                        context,
+                        "Downloading $fileName",
+                        "Downloading...",
+                        -1,
+                        100,
+                        notificationId
+                    )
+                }
             }
             outputStream.flush()
             return uri

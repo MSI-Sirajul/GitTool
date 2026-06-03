@@ -36,6 +36,9 @@ interface GitToolDao {
     @Query("DELETE FROM cached_repos WHERE isPrivateList = :isPrivate")
     suspend fun clearCachedRepos(isPrivate: Boolean)
 
+    @Query("DELETE FROM cached_repos WHERE fullName = :fullName")
+    suspend fun deleteCachedRepoByName(fullName: String)
+
 
     // --- Cached Files & Directories ---
     @Query("SELECT * FROM cached_files WHERE fullName = :fullName AND parentPath = :parentPath ORDER BY type DESC, name ASC")

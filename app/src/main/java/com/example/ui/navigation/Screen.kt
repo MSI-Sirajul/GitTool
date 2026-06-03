@@ -14,4 +14,7 @@ sealed class Screen(val route: String) {
     data object FileViewer : Screen("fileviewer/{owner}/{repo}/{path}") {
         fun createRoute(owner: String, repo: String, path: String) = "fileviewer/$owner/$repo/${Uri.encode(path)}"
     }
+    data object UserProfile : Screen("userprofile/{username}") {
+        fun createRoute(username: String) = "userprofile/$username"
+    }
 }

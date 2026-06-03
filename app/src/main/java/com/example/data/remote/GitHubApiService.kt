@@ -128,6 +128,23 @@ interface GitHubApiService {
     suspend fun markAllNotificationsAsRead(
         @Body body: MarkAllReadRequest = MarkAllReadRequest()
     ): retrofit2.Response<Unit>
+
+    @DELETE("repos/{owner}/{repo}")
+    suspend fun deleteRepo(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): retrofit2.Response<Unit>
+
+    @GET("users/{username}")
+    suspend fun getUserDetails(
+        @Path("username") username: String
+    ): GitHubUser
+
+    @GET("users/{username}/repos")
+    suspend fun getUserReposList(
+        @Path("username") username: String,
+        @Query("per_page") perPage: Int = 100
+    ): List<GitHubRepo>
 }
 
 @JsonClass(generateAdapter = true)

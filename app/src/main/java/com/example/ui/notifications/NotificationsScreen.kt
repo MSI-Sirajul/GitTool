@@ -162,7 +162,7 @@ fun NotificationCard(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Type: ${notification.subject.type} • Updated: ${notification.updated_at.substringBefore("T")}",
+                    text = "Reason: ${notification.reason} • Type: ${notification.subject.type} • Updated: ${notification.updated_at.substringBefore("T")}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

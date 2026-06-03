@@ -131,12 +131,33 @@ class RepoListViewModel(
     fun forkRepo(owner: String, repoName: String, context: Context, onResult: (Boolean, String) -> Unit) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
+            val notificationId = 1884
+            com.example.util.NotificationHelper.showProgressNotification(
+                context,
+                "Forking Repository",
+                "Creating a fork of $owner/$repoName...",
+                -1,
+                100,
+                notificationId
+            )
             val result = repoRepository.createFork(owner, repoName)
             _uiState.update { it.copy(isLoading = false) }
             result.onSuccess { forkRepo ->
                 loadUserAndRepos(context, forceRefresh = true)
+                com.example.util.NotificationHelper.showNotification(
+                    context,
+                    "Fork Succeeded",
+                    "Forked $owner/$repoName to your account.",
+                    notificationId
+                )
                 onResult(true, "Successfully forked: ${forkRepo.full_name}")
             }.onFailure { error ->
+                com.example.util.NotificationHelper.showNotification(
+                    context,
+                    "Fork Failed",
+                    "Could not fork $owner/$repoName: ${error.localizedMessage}",
+                    notificationId
+                )
                 onResult(false, error.localizedMessage ?: "Failed to fork repository.")
             }
         }
@@ -147,23 +168,65 @@ class RepoListViewModel(
         context: Context, 
         onResult: (Boolean, String) -> Unit
     ) {
-        // Simple GitHub Import process inside the scope instruction: 
-        // 1. If github.com URL, we fork it if we can extract owner/repo
-        // 2. Otherwise, we inform that direct repo copying is done, creating fork or opening custom dialog
         viewModelScope.launch {
             val cleanUrl = url.trim()
             if (cleanUrl.contains("github.com")) {
-                // Extract owner/repo
                 val parsed = cleanUrl.substringAfter("github.com/").removeSuffix(".git")
                 val parts = parsed.split("/")
                 if (parts.size >= 2) {
                     val owner = parts[0]
                     val repo = parts[1]
-                    forkRepo(owner, repo, context, onResult)
+                    val notificationId = 1885
+                    com.example.util.NotificationHelper.showProgressNotification(
+                        context,
+                        "Importing Repository",
+                        "Importing $owner/$repo to your repositories...",
+                        -1,
+                        100,
+                        notificationId
+                    )
+                    forkRepo(owner, repo, context) { success, msg ->
+                        onResult(success, msg)
+                    }
                     return@launch
                 }
             }
             onResult(false, "Unrecognized or external Git import URLs are current Web beta items. Please support github.com URLs.")
+        }
+    }
+
+    fun deleteRepository(context: Context, owner: String, repoName: String, onResult: (Boolean, String) -> Unit) {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            val notificationId = 1883
+            com.example.util.NotificationHelper.showProgressNotification(
+                context,
+                "Deleting Repository",
+                "Deleting $owner/$repoName...",
+                -1,
+                100,
+                notificationId
+            )
+            val result = repoRepository.deleteRepo(owner, repoName, context)
+            _uiState.update { it.copy(isLoading = false) }
+            result.onSuccess {
+                loadUserAndRepos(context, forceRefresh = true)
+                com.example.util.NotificationHelper.showNotification(
+                    context,
+                    "Repository Deleted",
+                    "Successfully deleted $owner/$repoName from your accounts.",
+                    notificationId
+                )
+                onResult(true, "Successfully deleted $owner/$repoName")
+            }.onFailure { error ->
+                com.example.util.NotificationHelper.showNotification(
+                    context,
+                    "Delete Failed",
+                    "Could not delete $owner/$repoName: ${error.localizedMessage}",
+                    notificationId
+                )
+                onResult(false, error.localizedMessage ?: "Failed to delete repository.")
+            }
         }
     }
 

@@ -14,7 +14,11 @@ import kotlinx.coroutines.launch
 sealed interface SearchUiState {
     data object Idle : SearchUiState
     data object Loading : SearchUiState
-    data class Success(val repos: List<GitHubRepo>, val users: List<GitHubUser>) : SearchUiState
+    data class Success(
+        val repos: List<GitHubRepo>, 
+        val users: List<GitHubUser>,
+        val ownRepos: List<GitHubRepo> = emptyList()
+    ) : SearchUiState
     data class Error(val message: String) : SearchUiState
 }
 
@@ -40,12 +44,22 @@ class SearchViewModel(
                     emit(SearchUiState.Loading)
                     val reposResult = repoRepository.searchRepositories(query)
                     val usersResult = repoRepository.searchUsers(query)
+                    
+                    val ownRepos = try {
+                        repoRepository.getLocalCachedRepos().filter {
+                            it.name.contains(query, ignoreCase = true) ||
+                            it.full_name.contains(query, ignoreCase = true)
+                        }
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
 
                     if (reposResult.isSuccess || usersResult.isSuccess) {
                         emit(
                             SearchUiState.Success(
                                 repos = reposResult.getOrNull() ?: emptyList(),
-                                users = usersResult.getOrNull() ?: emptyList()
+                                users = usersResult.getOrNull() ?: emptyList(),
+                                ownRepos = ownRepos
                             )
                         )
                     } else {

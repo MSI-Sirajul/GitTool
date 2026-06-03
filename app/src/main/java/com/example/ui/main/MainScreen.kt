@@ -43,6 +43,8 @@ import com.example.ui.components.RepoItem
 import com.example.ui.components.RepoSkeletonList
 import com.example.ui.components.TopBarWithMenu
 import com.example.ui.theme.ThemeViewModel
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.ui.upload.UploadSheet
 import com.example.ui.upload.UploadViewModel
 import com.example.util.NetworkUtil
@@ -69,6 +71,9 @@ fun MainScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showUploadSheet by remember { mutableStateOf(false) }
     var showProfileSheet by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var repoToDelete by remember { mutableStateOf<GitHubRepo?>(null) }
+    var showAvatarChangeDialog by remember { mutableStateOf(false) }
     
     // Dialog input controls
     var showImportDialog by remember { mutableStateOf(false) }
@@ -387,6 +392,25 @@ fun MainScreen(
                                         if (parts.size >= 2) {
                                             onRepoClick(parts[0], parts[1])
                                         }
+                                    },
+                                    onShareClick = {
+                                        try {
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_SUBJECT, repo.name)
+                                                putExtra(Intent.EXTRA_TEXT, "Check out this GitHub repository: ${repo.html_url}")
+                                            }
+                                            context.startActivity(Intent.createChooser(shareIntent, "Share Repository"))
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Cannot share repository.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onDeleteClick = {
+                                        val parts = repo.full_name.split("/")
+                                        if (parts.size >= 2) {
+                                            repoToDelete = repo
+                                            showDeleteDialog = true
+                                        }
                                     }
                                 )
                             }
@@ -576,13 +600,61 @@ fun MainScreen(
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
+                    // Avatar display with camera overlay
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .padding(bottom = 8.dp)
+                    ) {
+                        if (uiState.user?.avatar_url != null) {
+                            AsyncImage(
+                                model = uiState.user?.avatar_url,
+                                contentDescription = "User profile picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                            )
+                        } else {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(80.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.CameraAlt,
+                                        contentDescription = "No avatar",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(
+                            onClick = { showAvatarChangeDialog = true },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(28.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Edit avatar",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
                     // Profile info fields
                     Text(
                         text = "Customize profile fields on GitHub.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start)
                     )
                     OutlinedTextField(
                         value = profileName,
@@ -606,6 +678,27 @@ fun MainScreen(
                         value = profileBlog,
                         onValueChange = { profileBlog = it },
                         label = { Text("Personal Link / Blog") },
+                        trailingIcon = {
+                            if (profileBlog.isNotBlank()) {
+                                IconButton(onClick = {
+                                    try {
+                                        var cleanUrl = profileBlog.trim()
+                                        if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+                                            cleanUrl = "https://$cleanUrl"
+                                        }
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cleanUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Invalid website link", Toast.LENGTH_SHORT).show()
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.OpenInNew,
+                                        contentDescription = "Open personal website in browser"
+                                    )
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().testTag("profile_blog_input")
                     )
 
@@ -699,6 +792,68 @@ fun MainScreen(
                     onClick = { repoViewModel.onPrivateWarningResult(false) },
                     modifier = Modifier.testTag("warning_cancel_button")
                 ) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (showDeleteDialog && repoToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false; repoToDelete = null },
+            title = { Text("Delete Repository") },
+            text = { Text("Are you sure you want to delete ${repoToDelete!!.full_name}? This action cannot be undone on GitHub.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val repo = repoToDelete!!
+                        showDeleteDialog = false
+                        repoToDelete = null
+                        val parts = repo.full_name.split("/")
+                        if (parts.size >= 2) {
+                            repoViewModel.deleteRepository(context, parts[0], parts[1]) { success, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_button")
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false; repoToDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (showAvatarChangeDialog) {
+        AlertDialog(
+            onDismissRequest = { showAvatarChangeDialog = false },
+            title = { Text("Change Profile Picture") },
+            text = { Text("Direct avatar photo upload is not supported by standard GitHub REST API. Would you like to open GitHub's official profile configuration pages in your standard browser?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAvatarChangeDialog = false
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/profile"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "No browser detected.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Text("Open Profile Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAvatarChangeDialog = false }) {
                     Text("Cancel")
                 }
             },

@@ -182,6 +182,29 @@ fun NavGraph(
                 onBackClick = { navController.popBackStack() },
                 onRepoClick = { owner, repo ->
                     navController.navigate(Screen.FileBrowser.createRoute(owner, repo))
+                },
+                onUserClick = { username ->
+                    navController.navigate(Screen.UserProfile.createRoute(username))
+                }
+            )
+        }
+
+        // 8. USER PROFILE SCREEN
+        composable(
+            route = Screen.UserProfile.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("username") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val username = backStackEntry.arguments?.getString("username") ?: ""
+            val userProfileViewModel: com.example.ui.search.UserProfileViewModel = viewModel(
+                factory = com.example.ui.search.UserProfileViewModel.Factory(container.repoRepository, username)
+            )
+            com.example.ui.search.UserProfileScreen(
+                viewModel = userProfileViewModel,
+                onBackClick = { navController.popBackStack() },
+                onRepoClick = { owner, repo ->
+                    navController.navigate(Screen.FileBrowser.createRoute(owner, repo))
                 }
             )
         }
