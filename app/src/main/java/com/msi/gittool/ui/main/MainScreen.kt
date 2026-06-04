@@ -163,6 +163,13 @@ fun MainScreen(
                     label = { Text("Private") },
                     modifier = Modifier.testTag("private_tab")
                 )
+                NavigationBarItem(
+                    selected = currentFilter == RepoFilter.FORKED,
+                    onClick = { repoViewModel.selectFilter(RepoFilter.FORKED) },
+                    icon = { Icon(imageVector = Icons.Default.CallSplit, contentDescription = "Forked repositories") },
+                    label = { Text("Forked") },
+                    modifier = Modifier.testTag("forked_tab")
+                )
             }
         },
         floatingActionButton = {
@@ -340,6 +347,7 @@ fun MainScreen(
                                     RepoFilter.PUBLIC -> "No Public Repositories"
                                     RepoFilter.BOOKMARKS -> "No Bookmarked Items"
                                     RepoFilter.PRIVATE -> "No Private Repositories"
+                                    RepoFilter.FORKED -> "No Forked Repositories"
                                 },
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
@@ -353,6 +361,7 @@ fun MainScreen(
                                     RepoFilter.PUBLIC -> "Your public repository list is empty. Touch the '+' button below to upload local projects."
                                     RepoFilter.BOOKMARKS -> "Bookmarks show up here as quick access anchors to view files offline."
                                     RepoFilter.PRIVATE -> "Your private repository list is empty under this account."
+                                    RepoFilter.FORKED -> "You don't have any forked repositories under this account."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -932,25 +941,48 @@ fun MainScreen(
     if (showPrivateWarning) {
         AlertDialog(
             onDismissRequest = { repoViewModel.onPrivateWarningResult(false) },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Private Data Access Icon",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
             title = {
                 Text(
                     text = "Private Repositories Check",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
-                Text(
-                    text = "You are about to view your private repositories. These contain sensitive source code files. Continue?",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "You are about to access your private repositories.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "These private modules may contain sensitive items, proprietary layouts, and configurations. Please check in a safe visual space.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             },
             confirmButton = {
                 Button(
                     onClick = { repoViewModel.onPrivateWarningResult(true) },
                     modifier = Modifier.testTag("warning_confirm_button")
                 ) {
-                    Text("Continue")
+                    Text("Continue Access")
                 }
             },
             dismissButton = {
@@ -961,15 +993,66 @@ fun MainScreen(
                     Text("Cancel")
                 }
             },
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
     if (showDeleteDialog && repoToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false; repoToDelete = null },
-            title = { Text("Delete Repository") },
-            text = { Text("Are you sure you want to delete ${repoToDelete!!.full_name}? This action cannot be undone on GitHub.") },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Danger Warning",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(40.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Irreversible Action Warning",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.error
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Are you sure you want to delete ${repoToDelete!!.name}?",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "⚠️ CRITICAL CONSEQUENCES:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                text = "• All files, branches, issues, and histories will be instantly and permanently deleted on GitHub.\n• You will lose ALL data and commits of this repo.\n• This action cannot be redressed.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -986,7 +1069,7 @@ fun MainScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.testTag("confirm_delete_button")
                 ) {
-                    Text("Delete")
+                    Text("Delete Permanently")
                 }
             },
             dismissButton = {
@@ -994,7 +1077,7 @@ fun MainScreen(
                     Text("Cancel")
                 }
             },
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(24.dp)
         )
     }
 

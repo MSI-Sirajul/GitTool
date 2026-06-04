@@ -17,13 +17,25 @@ object NotificationHelper {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW // Low importance prevents constant sound alerts during progress updates
+                NotificationManager.IMPORTANCE_DEFAULT // Default importance plays a sound and displays in notifications drawer properly
             ).apply {
                 description = "GitTool app general notifications"
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
+    }
+
+    private fun getAppPendingIntent(context: Context, notificationId: Int): PendingIntent {
+        val intent = Intent(context, com.msi.gittool.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        return PendingIntent.getActivity(context, notificationId, intent, flags)
     }
 
     fun showNotification(context: Context, title: String, message: String, notificationId: Int = System.currentTimeMillis().toInt()) {
@@ -34,6 +46,7 @@ object NotificationHelper {
             .setContentText(message)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
             .setAutoCancel(true)
+            .setContentIntent(getAppPendingIntent(context, notificationId))
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
 
         manager.notify(notificationId, builder.build())
@@ -55,6 +68,7 @@ object NotificationHelper {
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(progress < max && progress >= 0)
             .setAutoCancel(true)
+            .setContentIntent(getAppPendingIntent(context, notificationId))
             .setProgress(max, progress, progress == -1)
 
         manager.notify(notificationId, builder.build())
@@ -88,6 +102,11 @@ object NotificationHelper {
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .addAction(
+                android.R.drawable.ic_menu_view,
+                "Open",
+                pendingIntent
+            )
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
 
         manager.notify(notificationId, builder.build())

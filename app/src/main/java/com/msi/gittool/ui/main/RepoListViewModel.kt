@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 enum class RepoFilter {
-    PUBLIC, BOOKMARKS, PRIVATE
+    PUBLIC, BOOKMARKS, PRIVATE, FORKED
 }
 
 enum class RepoSortOrder {
@@ -70,6 +70,9 @@ class RepoListViewModel(
             RepoFilter.PUBLIC -> state.publicRepos
             RepoFilter.PRIVATE -> state.privateRepos
             RepoFilter.BOOKMARKS -> bookmarks
+            RepoFilter.FORKED -> {
+                (state.publicRepos + state.privateRepos).filter { it.fork }.distinctBy { it.id }
+            }
         }
         when (sortOrder) {
             RepoSortOrder.NAME -> repos.sortedBy { it.name.lowercase() }

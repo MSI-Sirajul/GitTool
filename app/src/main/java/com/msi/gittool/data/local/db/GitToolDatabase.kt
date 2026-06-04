@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         CachedFileEntity::class,
         CachedUserEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class GitToolDatabase : RoomDatabase() {

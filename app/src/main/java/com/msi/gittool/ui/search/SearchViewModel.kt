@@ -42,8 +42,18 @@ class SearchViewModel(
             if (query.trim().length >= 2) {
                 flow<SearchUiState> {
                     emit(SearchUiState.Loading)
-                    val reposResult = repoRepository.searchRepositories(query)
-                    val usersResult = repoRepository.searchUsers(query)
+                    
+                    val reposResult = try {
+                        repoRepository.searchRepositories(query)
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                    
+                    val usersResult = try {
+                        repoRepository.searchUsers(query)
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
                     
                     val ownRepos = try {
                         repoRepository.getLocalCachedRepos().filter {
@@ -54,17 +64,17 @@ class SearchViewModel(
                         emptyList()
                     }
 
-                    if (reposResult.isSuccess || usersResult.isSuccess) {
-                        emit(
-                            SearchUiState.Success(
-                                repos = reposResult.getOrNull() ?: emptyList(),
-                                users = usersResult.getOrNull() ?: emptyList(),
-                                ownRepos = ownRepos
-                            )
+                    val repos = reposResult.getOrNull() ?: emptyList()
+                    val users = usersResult.getOrNull() ?: emptyList()
+
+                    // Display success matching empty flow fallback to prevent showing ugly error panels
+                    emit(
+                        SearchUiState.Success(
+                            repos = repos,
+                            users = users,
+                            ownRepos = ownRepos
                         )
-                    } else {
-                        emit(SearchUiState.Error("An error occurred during search. Please check network connection."))
-                    }
+                    )
                 }
             } else {
                 flowOf<SearchUiState>(SearchUiState.Idle)

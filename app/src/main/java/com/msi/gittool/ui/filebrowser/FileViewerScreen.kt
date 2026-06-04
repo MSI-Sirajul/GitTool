@@ -2,28 +2,38 @@ package com.msi.gittool.ui.filebrowser
 
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 
@@ -36,6 +46,7 @@ fun FileViewerScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    var viewRawMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadFile(context)
@@ -62,6 +73,26 @@ fun FileViewerScreen(
                         modifier = Modifier.testTag("share_file_button")
                     ) {
                         Icon(imageVector = Icons.Default.Share, contentDescription = "Share Link")
+                    }
+                    IconButton(
+                        onClick = {
+                            val clipManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clipData = android.content.ClipData.newPlainText("Raw Code", uiState.decodedContent)
+                            clipManager.setPrimaryClip(clipData)
+                            Toast.makeText(context, "Copied code to clipboard", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.testTag("copy_code_button")
+                    ) {
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy Raw Code")
+                    }
+                    IconButton(
+                        onClick = { viewRawMode = !viewRawMode },
+                        modifier = Modifier.testTag("toggle_raw_button")
+                    ) {
+                        Icon(
+                            imageVector = if (viewRawMode) Icons.Default.Code else Icons.Default.Description,
+                            contentDescription = if (viewRawMode) "Syntax Highlighted View" else "Raw Selection View"
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.downloadFile(context) },
@@ -113,64 +144,83 @@ fun FileViewerScreen(
                         )
                     }
                 } else {
-                    // WebView Syntax highlighting mode (using highlight.js)
-                    val rawCode = uiState.decodedContent
-                    val escaped = rawCode.escapeHtml()
+                    if (viewRawMode) {
+                        SelectionContainer {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFF0D1117))
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(16.dp)
+                            ) {
+                                Text(
+                                    text = uiState.decodedContent,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFC9D1D9)
+                                )
+                            }
+                        }
+                    } else {
+                        // WebView Syntax highlighting mode (using highlight.js)
+                        val rawCode = uiState.decodedContent
+                        val escaped = rawCode.escapeHtml()
 
-                    val html = """
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                          <style>
-                            html, body {
-                              margin: 0;
-                              padding: 0;
-                              background-color: #0d1117;
-                              color: #c9d1d9;
-                              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-                            }
-                            pre {
-                              margin: 0;
-                              padding: 16px;
-                              overflow-x: auto;
-                              white-space: pre-wrap;
-                              word-wrap: break-word;
-                              box-sizing: border-box;
-                            }
-                            code {
-                              font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-                              font-size: 13px;
-                              line-height: 1.5;
-                            }
-                          </style>
-                          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
-                          <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
-                          <script>hljs.highlightAll();</script>
-                        </head>
-                        <body>
-                          <pre><code class="language-auto">$escaped</code></pre>
-                        </body>
-                        </html>
-                    """.trimIndent()
+                        val html = """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                              <style>
+                                html, body {
+                                  margin: 0;
+                                  padding: 0;
+                                  background-color: #0d1117;
+                                  color: #c9d1d9;
+                                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                                }
+                                pre {
+                                  margin: 0;
+                                  padding: 16px;
+                                  overflow-x: auto;
+                                  white-space: pre-wrap;
+                                  word-wrap: break-word;
+                                  box-sizing: border-box;
+                                }
+                                code {
+                                  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+                                  font-size: 13px;
+                                  line-height: 1.5;
+                                }
+                              </style>
+                              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+                              <script>hljs.highlightAll();</script>
+                            </head>
+                            <body>
+                              <pre><code class="language-auto">$escaped</code></pre>
+                            </body>
+                            </html>
+                        """.trimIndent()
 
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                webViewClient = WebViewClient()
-                                settings.javaScriptEnabled = true
-                                settings.loadWithOverviewMode = true
-                                settings.useWideViewPort = true
-                                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                        AndroidView(
+                            factory = { ctx ->
+                                WebView(ctx).apply {
+                                    webViewClient = WebViewClient()
+                                    settings.javaScriptEnabled = true
+                                    settings.loadWithOverviewMode = true
+                                    settings.useWideViewPort = true
+                                    loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }

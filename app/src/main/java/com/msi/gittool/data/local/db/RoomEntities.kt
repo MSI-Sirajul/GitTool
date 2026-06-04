@@ -16,7 +16,8 @@ data class BookmarkEntity(
     val language: String?,
     val cloneUrl: String,
     val defaultBranch: String,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val isFork: Boolean = false
 )
 
 @Entity(tableName = "cached_repos")
@@ -33,7 +34,8 @@ data class CachedRepoEntity(
     val cloneUrl: String,
     val defaultBranch: String,
     val isPrivateList: Boolean, // differentiate cached public vs private main feeds
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val isFork: Boolean = false
 )
 
 @Entity(tableName = "cached_users")

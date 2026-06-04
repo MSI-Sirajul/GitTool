@@ -31,7 +31,8 @@ data class GitHubRepo(
     val language: String?,
     val clone_url: String,
     val default_branch: String? = "main",
-    val updated_at: String? = null
+    val updated_at: String? = null,
+    val fork: Boolean = false
 )
 
 @JsonClass(generateAdapter = true)

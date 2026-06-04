@@ -923,7 +923,8 @@ class RepoRepository(
         language = language,
         clone_url = cloneUrl,
         default_branch = defaultBranch,
-        updated_at = updatedAt
+        updated_at = updatedAt,
+        fork = isFork
     )
 
     private fun GitHubRepo.toBookmarkEntity(): BookmarkEntity = BookmarkEntity(
@@ -938,7 +939,8 @@ class RepoRepository(
         language = language,
         cloneUrl = clone_url,
         defaultBranch = default_branch ?: "main",
-        updatedAt = updated_at
+        updatedAt = updated_at,
+        isFork = fork
     )
 
     private fun CachedRepoEntity.toGitHubRepo(): GitHubRepo = GitHubRepo(
@@ -953,7 +955,8 @@ class RepoRepository(
         language = language,
         clone_url = cloneUrl,
         default_branch = defaultBranch,
-        updated_at = updatedAt
+        updated_at = updatedAt,
+        fork = isFork
     )
 
     private fun GitHubRepo.toCachedRepoEntity(isPrivateList: Boolean): CachedRepoEntity = CachedRepoEntity(
@@ -969,7 +972,8 @@ class RepoRepository(
         cloneUrl = clone_url,
         defaultBranch = default_branch ?: "main",
         isPrivateList = isPrivateList,
-        updatedAt = updated_at
+        updatedAt = updated_at,
+        isFork = fork
     )
 
     private fun GitHubContentItem.toCachedFileEntity(fullName: String, parentPath: String): CachedFileEntity = CachedFileEntity(
