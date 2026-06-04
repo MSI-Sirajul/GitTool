@@ -49,7 +49,7 @@ interface GitHubApiService {
         @Body request: UpdateRefRequest
     ): UpdateRefResponse
 
-    @GET("repos/{owner}/{repo}/git/ref/heads/{branch}")
+    @GET("repos/{owner}/{repo}/git/refs/heads/{branch}")
     suspend fun getReference(
         @Path("owner") owner: String,
         @Path("repo") repo: String,
@@ -98,6 +98,12 @@ interface GitHubApiService {
         @Path("repo") repo: String,
         @Path("path") path: String
     ): GitHubFileContentResponse
+
+    @GET("repos/{owner}/{repo}/languages")
+    suspend fun getRepoLanguages(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): Map<String, Long>
 
     // --- Forks & Imports ---
     @POST("repos/{owner}/{repo}/forks")

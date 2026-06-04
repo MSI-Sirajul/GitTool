@@ -19,7 +19,9 @@ data class FileBrowserUiState(
     val pathHistory: List<String> = emptyList(),
     val contents: List<GitHubContentItem> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val languages: Map<String, Float> = emptyMap(),
+    val commitActivity: List<Int> = emptyList()
 )
 
 class FileBrowserViewModel(
@@ -34,6 +36,27 @@ class FileBrowserViewModel(
     fun loadContents(path: String, forceRefresh: Boolean, context: Context) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
+            if (path.isEmpty()) {
+                launch {
+                    val langsRes = repoRepository.getRepoLanguages(owner, repoName, context)
+                    langsRes.onSuccess { rawMap ->
+                        val totalBytes = rawMap.values.sum().toFloat()
+                        val floatMap = if (totalBytes > 0) {
+                            rawMap.mapValues { it.value / totalBytes }
+                        } else {
+                            rawMap.mapValues { 0f }
+                        }
+                        _uiState.update { it.copy(languages = floatMap) }
+                    }
+                }
+                launch {
+                    val commitRes = repoRepository.getRepoCommitActivity(owner, repoName, context)
+                    commitRes.onSuccess { list ->
+                        _uiState.update { it.copy(commitActivity = list) }
+                    }
+                }
+            }
+
             val result = repoRepository.getRepoContents(owner, repoName, path, forceRefresh, context)
             result.onSuccess { list ->
                 _uiState.update { state ->

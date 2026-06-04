@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.msi.gittool.data.remote.GitHubRepo
+import com.msi.gittool.ui.components.DashboardStatsOverview
 import com.msi.gittool.ui.components.RepoItem
 import com.msi.gittool.ui.components.RepoSkeletonList
 import com.msi.gittool.ui.components.TopBarWithMenu
@@ -251,6 +252,20 @@ fun MainScreen(
                 .padding(innerPadding)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = uiState.isLoading,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                    )
+                }
+
                 // If offline, display a beautiful high-contrast banner indicating cache mode is active
                 if (!isOnline) {
                     Surface(
@@ -363,6 +378,26 @@ fun MainScreen(
                                 .widthIn(max = 640.dp)
                                 .align(Alignment.TopCenter)
                         ) {
+                            item {
+                                val totalStars = remember(uiState.publicRepos, uiState.privateRepos) {
+                                    uiState.publicRepos.sumOf { it.stargazers_count ?: 0 } +
+                                            uiState.privateRepos.sumOf { it.stargazers_count ?: 0 }
+                                }
+                                val totalForks = remember(uiState.publicRepos, uiState.privateRepos) {
+                                    uiState.publicRepos.sumOf { it.forks_count ?: 0 } +
+                                            uiState.privateRepos.sumOf { it.forks_count ?: 0 }
+                                }
+                                DashboardStatsOverview(
+                                    user = uiState.user,
+                                    publicCount = uiState.publicRepos.size,
+                                    privateCount = uiState.privateRepos.size,
+                                    totalStars = totalStars,
+                                    totalForks = totalForks,
+                                    totalBookmarks = bookmarksList.size,
+                                    isLoading = uiState.isLoading,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
                             items(
                                 items = filteredRepos,
                                 key = { it.id }
@@ -437,6 +472,42 @@ fun MainScreen(
                         .padding(16.dp)
                 ) {
                     Text(text = uiState.errorMessage ?: "")
+                }
+            }
+
+            // Global floating capsule sync indicator
+            AnimatedVisibility(
+                visible = uiState.isLoading || uiState.isRefreshing,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -40 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { -40 }),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.testTag("global_fetching_sync_capsule")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (uiState.isRefreshing) "Refreshing..." else "Syncing with GitHub...",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

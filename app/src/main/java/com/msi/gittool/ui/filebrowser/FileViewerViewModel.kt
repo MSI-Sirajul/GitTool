@@ -24,12 +24,17 @@ data class FileViewerUiState(
 ) {
     val decodedContent: String by lazy {
         val raw = contentItem?.content ?: return@lazy ""
-        val clean = raw.replace("\n", "").replace("\r", "")
+        val clean = raw.replace("\\s".toRegex(), "")
         try {
             val bytes = android.util.Base64.decode(clean, android.util.Base64.DEFAULT)
             String(bytes, StandardCharsets.UTF_8)
         } catch (e: Exception) {
-            raw
+            try {
+                val bytes = android.util.Base64.decode(clean, android.util.Base64.URL_SAFE)
+                String(bytes, StandardCharsets.UTF_8)
+            } catch (e2: Exception) {
+                raw
+            }
         }
     }
 
