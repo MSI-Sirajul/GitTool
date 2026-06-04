@@ -20,7 +20,9 @@ data class FileViewerUiState(
     val path: String = "",
     val contentItem: GitHubFileContentResponse? = null,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val editableContent: String = "",
+    val tempCacheFilePath: String? = null
 ) {
     val decodedContent: String by lazy {
         val raw = contentItem?.content ?: return@lazy ""
@@ -42,14 +44,22 @@ data class FileViewerUiState(
         get() {
             val p = path.lowercase()
             return p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg") ||
-                    p.endsWith(".gif") || p.endsWith(".webp") || p.endsWith(".bmp")
+                    p.endsWith(".gif") || p.endsWith(".webp") || p.endsWith(".bmp") ||
+                    p.endsWith(".svg")
         }
 
     val isVideo: Boolean
         get() {
             val p = path.lowercase()
             return p.endsWith(".mp4") || p.endsWith(".mkv") || p.endsWith(".3gp") ||
-                    p.endsWith(".webm") || p.endsWith(".avi")
+                    p.endsWith(".webm") || p.endsWith(".avi") || p.endsWith(".mov")
+        }
+
+    val isAudio: Boolean
+        get() {
+            val p = path.lowercase()
+            return p.endsWith(".mp3") || p.endsWith(".wav") || p.endsWith(".ogg") ||
+                    p.endsWith(".m4a") || p.endsWith(".aac") || p.endsWith(".flac")
         }
 }
 
@@ -68,7 +78,30 @@ class FileViewerViewModel(
         viewModelScope.launch {
             val result = repoRepository.getRepoFileContent(owner, repo, path, forceRefresh, context)
             result.onSuccess { contentResponse ->
-                _uiState.update { it.copy(contentItem = contentResponse, isLoading = false) }
+                // Decode raw content
+                val decoded = FileViewerUiState(owner, repo, path, contentResponse).decodedContent
+
+                // Write content to a Cache or Temp physical file in App's data directory
+                val cacheFile = try {
+                    val cacheDir = java.io.File(context.cacheDir, "gittool_editor_cache")
+                    if (!cacheDir.exists()) cacheDir.mkdirs()
+                    val filename = path.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
+                    val physicalFile = java.io.File(cacheDir, filename)
+                    physicalFile.writeText(decoded, java.nio.charset.StandardCharsets.UTF_8)
+                    physicalFile
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+
+                _uiState.update { 
+                    it.copy(
+                        contentItem = contentResponse, 
+                        isLoading = false,
+                        editableContent = decoded,
+                        tempCacheFilePath = cacheFile?.absolutePath
+                    ) 
+                }
             }.onFailure { error ->
                 _uiState.update { it.copy(
                     isLoading = false,
@@ -76,6 +109,19 @@ class FileViewerViewModel(
                 ) }
             }
         }
+    }
+
+    fun updateCodeContent(newContent: String, context: Context) {
+        val currentPath = _uiState.value.tempCacheFilePath
+        if (currentPath != null) {
+            try {
+                val file = java.io.File(currentPath)
+                file.writeText(newContent, java.nio.charset.StandardCharsets.UTF_8)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        _uiState.update { it.copy(editableContent = newContent) }
     }
 
     fun downloadFile(context: Context) {
