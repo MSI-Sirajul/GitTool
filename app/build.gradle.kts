@@ -7,12 +7,33 @@ plugins {
 }
 
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.util.Properties
 
 val keystorePropertiesFile = rootProject.file("app/keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+// Dynamically generate .env file from system environment variables if they exist
+val envFile = rootProject.file(".env")
+val envProperties = Properties()
+if (envFile.exists()) {
+    FileInputStream(envFile).use { envProperties.load(it) }
+} else {
+    envFile.createNewFile()
+}
+var envModified = false
+listOf("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GEMINI_API_KEY").forEach { key ->
+    val value = System.getenv(key)
+    if (!value.isNullOrEmpty() && envProperties.getProperty(key) != value) {
+        envProperties.setProperty(key, value)
+        envModified = true
+    }
+}
+if (envModified) {
+    FileOutputStream(envFile).use { envProperties.store(it, "Generated from Environment Variables at compile-time") }
 }
 
 android {
