@@ -78,29 +78,45 @@ class FileViewerViewModel(
         viewModelScope.launch {
             val result = repoRepository.getRepoFileContent(owner, repo, path, forceRefresh, context)
             result.onSuccess { contentResponse ->
-                // Decode raw content
-                val decoded = FileViewerUiState(owner, repo, path, contentResponse).decodedContent
+                val downloadUrl = contentResponse.download_url ?: "https://raw.githubusercontent.com/$owner/$repo/main/$path"
+                
+                // Let's download the raw file to the internal cache directory
+                val cacheResult = repoRepository.downloadFileToCache(
+                    context = context,
+                    owner = owner,
+                    repo = repo,
+                    path = path,
+                    downloadUrl = downloadUrl,
+                    forceRefresh = forceRefresh
+                )
 
-                // Write content to a Cache or Temp physical file in App's data directory
-                val cacheFile = try {
-                    val cacheDir = java.io.File(context.cacheDir, "gittool_editor_cache")
-                    if (!cacheDir.exists()) cacheDir.mkdirs()
-                    val filename = path.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
-                    val physicalFile = java.io.File(cacheDir, filename)
-                    physicalFile.writeText(decoded, java.nio.charset.StandardCharsets.UTF_8)
-                    physicalFile
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    null
-                }
+                cacheResult.onSuccess { cacheFile ->
+                    val fileText = try {
+                        cacheFile.readText(java.nio.charset.StandardCharsets.UTF_8)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        ""
+                    }
 
-                _uiState.update { 
-                    it.copy(
-                        contentItem = contentResponse, 
-                        isLoading = false,
-                        editableContent = decoded,
-                        tempCacheFilePath = cacheFile?.absolutePath
-                    ) 
+                    _uiState.update { 
+                        it.copy(
+                            contentItem = contentResponse, 
+                            isLoading = false,
+                            editableContent = fileText,
+                            tempCacheFilePath = cacheFile.absolutePath
+                        ) 
+                    }
+                }.onFailure { cacheError ->
+                    // Fallback to decode base64 field from response if download fails
+                    val decoded = FileViewerUiState(owner, repo, path, contentResponse).decodedContent
+                    _uiState.update { 
+                        it.copy(
+                            contentItem = contentResponse, 
+                            isLoading = false,
+                            editableContent = decoded,
+                            tempCacheFilePath = null
+                        ) 
+                    }
                 }
             }.onFailure { error ->
                 _uiState.update { it.copy(

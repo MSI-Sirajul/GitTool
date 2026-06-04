@@ -805,6 +805,80 @@ class RepoRepository(
         }
     }
 
+    suspend fun downloadFileToCache(
+        context: Context,
+        owner: String,
+        repo: String,
+        path: String,
+        downloadUrl: String,
+        forceRefresh: Boolean = false
+    ): Result<java.io.File> = withContext(Dispatchers.IO) {
+        val cacheDir = java.io.File(context.cacheDir, "gittool_repo_cache")
+        if (!cacheDir.exists()) {
+            cacheDir.mkdirs()
+        }
+        val safeFileName = "cache_${owner}_${repo}_" + path.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
+        val cacheFile = java.io.File(cacheDir, safeFileName)
+
+        if (cacheFile.exists() && cacheFile.length() > 0 && !forceRefresh) {
+            return@withContext Result.success(cacheFile)
+        }
+
+        if (tokenManager.isMockLogin()) {
+            try {
+                val mockResp = generateMockRepoFileContent(owner, repo, path)
+                val rawString = mockResp.content ?: ""
+                val clean = rawString.replace("\\s".toRegex(), "")
+                val bytes = try {
+                    android.util.Base64.decode(clean, android.util.Base64.DEFAULT)
+                } catch (e: Exception) {
+                    rawString.toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+                }
+                cacheFile.writeBytes(bytes)
+                return@withContext Result.success(cacheFile)
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+        }
+
+        try {
+            val token = tokenManager.getAccessToken()
+            val requestBuilder = okhttp3.Request.Builder().url(downloadUrl)
+            
+            val uri = Uri.parse(downloadUrl)
+            val host = uri.host?.lowercase() ?: ""
+            val isGitHubHost = host == "api.github.com" || host == "github.com" || 
+                    host.endsWith(".github.com") || host.endsWith(".githubusercontent.com")
+            
+            if (isGitHubHost && !token.isNullOrEmpty()) {
+                val authHeader = if (token.startsWith("ghp_") || token.startsWith("gho_")) {
+                    "token $token"
+                } else {
+                    "Bearer $token"
+                }
+                requestBuilder.header("Authorization", authHeader)
+            }
+            requestBuilder.header("User-Agent", "GitTool-Android-App")
+            
+            val request = requestBuilder.build()
+            val client = okhttp3.OkHttpClient()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(Exception("Server returned status: ${response.code}"))
+                }
+                val body = response.body ?: return@withContext Result.failure(Exception("Empty response body"))
+                body.byteStream().use { inputStream ->
+                    cacheFile.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                Result.success(cacheFile)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun saveFileToDownloads(
         context: Context,
         fileName: String,

@@ -156,11 +156,11 @@ fun FileViewerScreen(
                 }
             } else {
                 if (uiState.isImage) {
-                    ImagePlayerView(imageUrl = uiState.contentItem?.download_url, fileName = uiState.path)
+                    ImagePlayerView(imageModel = uiState.tempCacheFilePath?.let { java.io.File(it) } ?: uiState.contentItem?.download_url, fileName = uiState.path)
                 } else if (uiState.isVideo) {
-                    VideoPlayerView(videoUrl = uiState.contentItem?.download_url)
+                    VideoPlayerView(videoPath = uiState.tempCacheFilePath, videoUrl = uiState.contentItem?.download_url)
                 } else if (uiState.isAudio) {
-                    AudioPlayerView(audioUrl = uiState.contentItem?.download_url, fileName = uiState.path.substringAfterLast("/"))
+                    AudioPlayerView(audioPath = uiState.tempCacheFilePath, audioUrl = uiState.contentItem?.download_url, fileName = uiState.path.substringAfterLast("/"))
                 } else {
                     // Compose local, native Notepad++ Code Editor with Synchronized Line Numbers
                     CodePlaygroundEditor(
@@ -177,7 +177,7 @@ fun FileViewerScreen(
 }
 
 @Composable
-fun ImagePlayerView(imageUrl: String?, fileName: String) {
+fun ImagePlayerView(imageModel: Any?, fileName: String) {
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val state = rememberTransformableState { zoomChange, offsetChange, _ ->
@@ -201,7 +201,7 @@ fun ImagePlayerView(imageUrl: String?, fileName: String) {
         contentAlignment = Alignment.Center
     ) {
         AsyncImage(
-            model = imageUrl,
+            model = imageModel,
             contentDescription = "Preview of $fileName",
             modifier = Modifier
                 .graphicsLayer(
@@ -217,7 +217,7 @@ fun ImagePlayerView(imageUrl: String?, fileName: String) {
 }
 
 @Composable
-fun VideoPlayerView(videoUrl: String?) {
+fun VideoPlayerView(videoPath: String?, videoUrl: String?) {
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     var currentPos by remember { mutableStateOf(0f) }
@@ -245,7 +245,7 @@ fun VideoPlayerView(videoUrl: String?) {
             .background(Color(0xFF0F0F14)),
         contentAlignment = Alignment.Center
     ) {
-        if (!videoUrl.isNullOrEmpty()) {
+        if (!videoPath.isNullOrEmpty() || !videoUrl.isNullOrEmpty()) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -260,7 +260,11 @@ fun VideoPlayerView(videoUrl: String?) {
                     AndroidView(
                         factory = { ctx ->
                             VideoView(ctx).apply {
-                                setVideoURI(Uri.parse(videoUrl))
+                                if (!videoPath.isNullOrEmpty()) {
+                                    setVideoPath(videoPath)
+                                } else if (!videoUrl.isNullOrEmpty()) {
+                                    setVideoURI(Uri.parse(videoUrl))
+                                }
                                 setOnPreparedListener { mp ->
                                     mp.isLooping = true
                                     duration = mp.duration.toFloat()
@@ -390,17 +394,18 @@ fun VideoPlayerView(videoUrl: String?) {
 }
 
 @Composable
-fun AudioPlayerView(audioUrl: String?, fileName: String) {
+fun AudioPlayerView(audioPath: String?, audioUrl: String?, fileName: String) {
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     var currentPos by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(100f) }
     var isPrepared by remember { mutableStateOf(false) }
 
-    LaunchedEffect(audioUrl) {
-        if (!audioUrl.isNullOrEmpty()) {
+    LaunchedEffect(audioPath, audioUrl) {
+        val dataSource = audioPath ?: audioUrl
+        if (!dataSource.isNullOrEmpty()) {
             val mp = MediaPlayer().apply {
-                setDataSource(audioUrl)
+                setDataSource(dataSource)
                 setOnPreparedListener { prepareMediaPlayer ->
                     duration = prepareMediaPlayer.duration.toFloat()
                     isPrepared = true
