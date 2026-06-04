@@ -36,6 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,6 +112,34 @@ fun FileViewerScreen(
                 )
             )
         },
+        floatingActionButton = {
+            if (!uiState.isLoading && uiState.errorMessage.isNullOrEmpty()) {
+                if (uiState.isImage) {
+                    ExtendedFloatingActionButton(
+                        onClick = { viewModel.downloadImageUsingDownloadManager(context) },
+                        icon = { Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Download Image") },
+                        text = { Text("Download Image") },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.testTag("download_image_fab")
+                    )
+                } else if (!uiState.isVideo) {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            val clipManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clipData = android.content.ClipData.newPlainText("Raw Code", uiState.decodedContent)
+                            clipManager.setPrimaryClip(clipData)
+                            Toast.makeText(context, "Copied entire raw code content to clipboard!", Toast.LENGTH_SHORT).show()
+                        },
+                        icon = { Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy Raw Code") },
+                        text = { Text("Copy Code") },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.testTag("copy_code_fab")
+                    )
+                }
+            }
+        },
         modifier = modifier
     ) { innerPadding ->
         Box(
@@ -128,20 +162,73 @@ fun FileViewerScreen(
                 }
             } else {
                 if (uiState.isImage) {
-                    // Coil Image display mode
+                    // Premium interactive pinch-to-zoom image viewer
+                    var scale by remember { mutableStateOf(1f) }
+                    var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+                    val state = rememberTransformableState { zoomChange, offsetChange, _ ->
+                        scale = (scale * zoomChange).coerceIn(1f, 5f)
+                        offset += offsetChange
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .background(Color.Black)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = {
+                                        scale = if (scale > 1f) 1f else 2.5f
+                                        offset = androidx.compose.ui.geometry.Offset.Zero
+                                    }
+                                )
+                            }
+                            .clipToBounds(),
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
                             model = uiState.contentItem?.download_url,
                             contentDescription = "Preview of ${uiState.path}",
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .verticalScroll(rememberScrollState())
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y
+                                )
+                                .transformable(state = state)
+                                .fillMaxSize()
                         )
+                    }
+                } else if (uiState.isVideo) {
+                    // Premium native Android video rendering with seek controller
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val videoUrl = uiState.contentItem?.download_url
+                        if (!videoUrl.isNullOrEmpty()) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    android.widget.VideoView(ctx).apply {
+                                        setVideoURI(android.net.Uri.parse(videoUrl))
+                                        val mediaController = android.widget.MediaController(ctx)
+                                        mediaController.setAnchorView(this)
+                                        setMediaController(mediaController)
+                                        setOnPreparedListener { mp ->
+                                            mp.isLooping = true
+                                            start()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                            )
+                        } else {
+                            Text("No video link is accessible.", color = Color.White)
+                        }
                     }
                 } else {
                     if (viewRawMode) {
@@ -162,48 +249,80 @@ fun FileViewerScreen(
                             }
                         }
                     } else {
-                        // WebView Syntax highlighting mode (using highlight.js)
+                        // Premium WebView Syntax highlighting mode (using Prism.js with CDNs, Autoloader & Line Numbers)
                         val rawCode = uiState.decodedContent
                         val escaped = rawCode.escapeHtml()
+                        
+                        val extension = uiState.path.substringAfterLast(".", "").lowercase()
+                        val prismLang = when (extension) {
+                            "kt", "kts" -> "kotlin"
+                            "java" -> "java"
+                            "rs" -> "rust"
+                            "py" -> "python"
+                            "js" -> "javascript"
+                            "ts" -> "typescript"
+                            "swift" -> "swift"
+                            "cpp", "hpp", "cc", "cxx" -> "cpp"
+                            "c", "h" -> "clike"
+                            "cs" -> "csharp"
+                            "go" -> "go"
+                            "rb" -> "ruby"
+                            "sh", "bash" -> "bash"
+                            "json" -> "json"
+                            "xml", "html", "xhtml" -> "markup"
+                            "css" -> "css"
+                            "md" -> "markdown"
+                            "yaml", "yml" -> "yaml"
+                            "sql" -> "sql"
+                            else -> "none"
+                        }
 
                         val html = """
                             <!DOCTYPE html>
                             <html>
                             <head>
                               <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+                              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
                               <style>
                                 html, body {
                                   margin: 0;
                                   padding: 0;
-                                  background-color: #0d1117;
+                                  background-color: #0d1117 !important;
                                   color: #c9d1d9;
-                                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
                                 }
-                                pre {
-                                  margin: 0;
-                                  padding: 16px;
-                                  overflow-x: auto;
-                                  white-space: pre-wrap;
-                                  word-wrap: break-word;
-                                  box-sizing: border-box;
+                                pre[class*="language-"] {
+                                  margin: 0 !important;
+                                  padding: 16px 16px 16px 52px !important;
+                                  background: #0d1117 !important;
+                                  border: none !important;
+                                  box-sizing: border-box !important;
+                                  overflow-x: auto !important;
                                 }
-                                code {
-                                  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-                                  font-size: 13px;
-                                  line-height: 1.5;
+                                code[class*="language-"] {
+                                  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace !important;
+                                  font-size: 13px !important;
+                                  line-height: 1.5 !important;
+                                }
+                                .line-numbers .line-numbers-rows {
+                                  border-right: 1px solid #21262d !important;
+                                  left: 0 !important;
+                                  padding: 16px 0 !important;
+                                  background-color: #0d1117 !important;
+                                }
+                                .line-numbers-rows > span:before {
+                                  color: #484f58 !important;
                                 }
                               </style>
-                              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
-                              <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
-                              <script>hljs.highlightAll();</script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+                              <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+                              <script>
+                                Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/';
+                              </script>
                             </head>
-                            <body>
-                              <pre><code class="language-auto">$escaped</code></pre>
+                            <body class="line-numbers">
+                              <pre class="line-numbers language-$prismLang"><code class="language-$prismLang">$escaped</code></pre>
                             </body>
                             </html>
                         """.trimIndent()

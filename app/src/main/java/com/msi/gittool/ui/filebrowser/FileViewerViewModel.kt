@@ -44,6 +44,13 @@ data class FileViewerUiState(
             return p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg") ||
                     p.endsWith(".gif") || p.endsWith(".webp") || p.endsWith(".bmp")
         }
+
+    val isVideo: Boolean
+        get() {
+            val p = path.lowercase()
+            return p.endsWith(".mp4") || p.endsWith(".mkv") || p.endsWith(".3gp") ||
+                    p.endsWith(".webm") || p.endsWith(".avi")
+        }
 }
 
 class FileViewerViewModel(
@@ -77,6 +84,35 @@ class FileViewerViewModel(
         val filename = path.substringAfterLast("/")
         viewModelScope.launch {
             repoRepository.downloadSingleFile(context, filename, url)
+        }
+    }
+
+    fun downloadImageUsingDownloadManager(context: Context) {
+        val state = _uiState.value
+        val url = state.contentItem?.download_url ?: return
+        val filename = path.substringAfterLast("/")
+        try {
+            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+            val uri = android.net.Uri.parse(url)
+            val request = android.app.DownloadManager.Request(uri).apply {
+                setTitle("Downloading $filename")
+                setDescription("Saving image via local system DownloadManager")
+                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename)
+                val token = repoRepository.getAccessToken()
+                if (!token.isNullOrEmpty()) {
+                    val authHeader = if (token.startsWith("ghp_") || token.startsWith("gho_")) {
+                        "token $token"
+                    } else {
+                        "Bearer $token"
+                    }
+                    addRequestHeader("Authorization", authHeader)
+                }
+            }
+            downloadManager.enqueue(request)
+            android.widget.Toast.makeText(context, "Initiated image download via DownloadManager. Check notification drawer.", android.widget.Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "Download failed: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

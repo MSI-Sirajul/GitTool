@@ -43,6 +43,8 @@ class RepoRepository(
 
     fun isBookmarkedFlow(id: Long): Flow<Boolean> = gitToolDao.isBookmarkedFlow(id)
 
+    fun getAccessToken(): String? = tokenManager.getAccessToken()
+
     suspend fun toggleBookmark(repo: GitHubRepo) = withContext(Dispatchers.IO) {
         if (gitToolDao.isBookmarked(repo.id)) {
             gitToolDao.deleteBookmarkById(repo.id)

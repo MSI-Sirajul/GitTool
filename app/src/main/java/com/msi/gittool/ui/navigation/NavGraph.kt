@@ -1,6 +1,7 @@
 package com.msi.gittool.ui.navigation
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -226,7 +227,31 @@ fun NavGraph(
             arguments = listOf(
                 androidx.navigation.navArgument("owner") { type = androidx.navigation.NavType.StringType },
                 androidx.navigation.navArgument("repo") { type = androidx.navigation.NavType.StringType }
-            )
+            ),
+            enterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(350)
+                ) + fadeIn(animationSpec = tween(350))
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(350)
+                ) + fadeOut(animationSpec = tween(350))
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(350)
+                ) + fadeIn(animationSpec = tween(350))
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(350)
+                ) + fadeOut(animationSpec = tween(350))
+            }
         ) { backStackEntry ->
             val owner = backStackEntry.arguments?.getString("owner") ?: ""
             val repo = backStackEntry.arguments?.getString("repo") ?: ""
@@ -249,7 +274,31 @@ fun NavGraph(
                 androidx.navigation.navArgument("owner") { type = androidx.navigation.NavType.StringType },
                 androidx.navigation.navArgument("repo") { type = androidx.navigation.NavType.StringType },
                 androidx.navigation.navArgument("path") { type = androidx.navigation.NavType.StringType }
-            )
+            ),
+            enterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(350)
+                ) + fadeIn(animationSpec = tween(350))
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(350)
+                ) + fadeOut(animationSpec = tween(350))
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(350)
+                ) + fadeIn(animationSpec = tween(350))
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(350)
+                ) + fadeOut(animationSpec = tween(350))
+            }
         ) { backStackEntry ->
             val owner = backStackEntry.arguments?.getString("owner") ?: ""
             val repo = backStackEntry.arguments?.getString("repo") ?: ""
